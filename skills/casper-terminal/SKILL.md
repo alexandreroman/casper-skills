@@ -1,7 +1,7 @@
 ---
 name: casper-terminal
 description: Open, list, and close terminals in a Casper workspace — including opening one on your own judgment when a command should run somewhere the user can see or interact with it (a dev server, a watch/tail command), not just on explicit request. Only useful inside a Casper terminal workspace.
-allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper terminal new *) Bash(casper terminal list) Bash(casper terminal list *) Bash(casper terminal close *)
+allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper terminal new) Bash(casper terminal new *) Bash(casper terminal list) Bash(casper terminal list *) Bash(casper terminal close *)
 ---
 
 # Casper terminal
