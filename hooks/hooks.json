@@ -54,6 +54,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "TaskCreate|TaskUpdate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && ${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use-tasks.py || true",
+            "timeout": 3
+          }
+        ]
+      }
     ]
   }
 }
