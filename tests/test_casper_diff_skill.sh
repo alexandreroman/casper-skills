@@ -10,6 +10,8 @@ grep -q "^name: casper-diff" "$FILE" || fail "missing name in frontmatter"
 grep -q "^description:" "$FILE" || fail "missing description in frontmatter"
 grep -q "CASPER_WORKSPACE_ID\|Casper terminal" "$FILE" || fail "missing guard-rule mention"
 grep -q "casper diff open" "$FILE" || fail "missing casper diff open example"
+grep -q "casper diff close" "$FILE" || fail "missing casper diff close example"
 grep -q "^allowed-tools:.*casper diff open" "$FILE" || fail "missing allowed-tools pre-authorization for casper diff open"
+grep -q "^allowed-tools:.*casper diff close" "$FILE" || fail "missing allowed-tools pre-authorization for casper diff close"
 
 echo "PASS"

@@ -1,7 +1,7 @@
 ---
 name: casper-browser
-description: Open a URL in a Casper workspace's browser panel when the user explicitly asks to see something in a browser (a running dev server, a local page, a doc). Only useful inside a Casper terminal workspace.
-allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper browser open *)
+description: Open a URL in a Casper workspace's browser panel, or close the panel, when the user explicitly asks. Only useful inside a Casper terminal workspace.
+allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper browser open *) Bash(casper browser close)
 ---
 
 # Casper browser
@@ -13,6 +13,13 @@ Casper's browser panel instead of a system browser or another tool:
 
 ```bash
 casper browser open <url>
+```
+
+When the user explicitly asks to close it ("ferme le navigateur", "close the
+browser panel", "hide the browser"), collapse it instead:
+
+```bash
+casper browser close
 ```
 
 This only works inside a terminal Casper opened — if the command fails or

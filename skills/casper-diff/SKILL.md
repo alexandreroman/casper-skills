@@ -1,7 +1,7 @@
 ---
 name: casper-diff
-description: Open a Casper workspace's diff view when the user explicitly asks to see a diff, in full or for a particular file. Only useful inside a Casper terminal workspace.
-allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper diff open *)
+description: Open a Casper workspace's diff view, in full or for a particular file, or close it, when the user explicitly asks. Only useful inside a Casper terminal workspace.
+allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper diff open *) Bash(casper diff close)
 ---
 
 # Casper diff
@@ -14,6 +14,13 @@ diff view, in addition to or instead of printing it as text:
 ```bash
 casper diff open          # full diff
 casper diff open <file>   # scrolled to one file
+```
+
+When the user explicitly asks to close it ("ferme le diff", "close the diff
+view", "cache le diff") — collapse it instead:
+
+```bash
+casper diff close
 ```
 
 This only works inside a terminal Casper opened — if the command fails or

@@ -22,9 +22,9 @@ judgment calls no hook can infer automatically:
 - `casper-status` — call `casper status set blocked` / `casper status set
   error` for agent states no hook can detect.
 - `casper-browser` — open a URL in Casper's browser panel when the user
-  asks to see something in a browser.
+  asks to see something in a browser, or close the panel when asked.
 - `casper-diff` — open Casper's diff view when the user asks to see a diff,
-  in full or for one file.
+  in full or for one file, or close it when asked.
 - `casper-terminal` — open, list, and close terminals in the workspace,
   including on Claude's own judgment when a command should run somewhere
   visible or interactive rather than in the background.
