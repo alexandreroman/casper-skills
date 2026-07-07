@@ -40,6 +40,24 @@ process is no longer needed. `--command` is optional (omit it for an empty
 shell); `--working-dir <path>` overrides the default (the workspace's
 worktree).
 
+### Launching a new Claude instance with `--command`
+
+Don't pass a bare `claude` — the terminal Casper opens is a non-interactive,
+non-login shell that never sources `~/.zshrc`, so it won't have whatever
+`PATH` entry makes `claude` resolve interactively (this fails with `exec:
+claude: not found`). Use the current instance's own executable path
+instead, exposed via `$CLAUDE_CODE_EXECPATH`:
+
+```bash
+casper terminal new --command "$CLAUDE_CODE_EXECPATH"
+```
+
+This is a fully-qualified path, so it needs no `PATH` lookup at all. Note it
+points at the exact running version (e.g.
+`~/.local/share/claude/versions/2.1.203`), not a stable "latest" symlink —
+that's fine here since the point is to launch the same version as the
+current instance.
+
 ## Listing and closing
 
 If the id was lost (e.g. after a context compaction), recover it with:

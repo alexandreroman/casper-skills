@@ -52,6 +52,24 @@ current workspace's Space), printing:
 `--command` is optional — omit it for an empty initial terminal, or pass a
 command to run immediately in the new workspace's terminal.
 
+### Launching a new Claude instance with `--command`
+
+Don't pass a bare `claude` — a new workspace's terminal is a
+non-interactive, non-login shell that never sources `~/.zshrc`, so it won't
+have whatever `PATH` entry makes `claude` resolve interactively (this fails
+with `exec: claude: not found`). Use the current instance's own executable
+path instead, exposed via `$CLAUDE_CODE_EXECPATH`:
+
+```bash
+casper workspace new --branch <name> --command "$CLAUDE_CODE_EXECPATH"
+```
+
+This is a fully-qualified path, so it needs no `PATH` lookup at all. Note it
+points at the exact running version (e.g.
+`~/.local/share/claude/versions/2.1.203`), not a stable "latest" symlink —
+that's fine here since the point is to launch the same version as the
+current instance.
+
 Only run this when the user explicitly asks for a new workspace/worktree —
 never on your own judgment. This mirrors the existing rule not to create a
 Git branch without being asked: `workspace new` always creates one.
