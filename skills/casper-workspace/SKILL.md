@@ -62,18 +62,36 @@ workspace — "explore X in a new workspace", "fix this in a new worktree",
 **not** satisfy that; an empty terminal can't explore or fix anything.
 Always add `--command` to start a new Claude instance there in the same
 call, unless the user explicitly only wants the workspace/worktree itself
-with nothing running in it:
+with nothing running in it.
+
+`--command`'s value is **not** run through a real shell — Casper tokenizes
+it on whitespace itself (backslash-escaping is honored to keep spaces
+inside one token, e.g. from `printf '%q'`) and directly execs the first
+token, with no `$PATH` search when it contains a `/` and no understanding
+of shell syntax like `VAR=value cmd` prefixes. Two consequences:
+
+- A bare `claude` fails with `exec: claude: not found`, because the new
+  terminal's shell never sources `~/.zshrc` (non-interactive, non-login),
+  so it starts with a minimal system `PATH` missing wherever `claude` is
+  installed. Use `$CLAUDE_CODE_EXECPATH` — the current instance's own
+  fully-qualified executable path — instead of a bare `claude`.
+- Even with that fixed, the spawned Claude instance still only has that
+  same minimal `PATH` in its own environment, so **its own** tool calls
+  fail to find things like `gh` or `rtk` (hook/tool errors, "command not
+  found") despite them working fine in your own session.
+
+Fix both by wrapping the whole thing in an explicit `/bin/sh -c` that
+re-exports the current session's full `$PATH` before exec'ing Claude —
+build it with nested `printf '%q'` calls (one layer for what real
+`/bin/sh` needs to parse, one more so Casper's own tokenizer keeps that as
+a single opaque argument):
 
 ```bash
-casper workspace new --branch <name> --command "$CLAUDE_CODE_EXECPATH"
+casper workspace new --branch <name> --command \
+  "/bin/sh -c $(printf '%q' "PATH=$(printf '%q' "$PATH") exec $(printf '%q' "$CLAUDE_CODE_EXECPATH")")"
 ```
 
-Don't pass a bare `claude` — a new workspace's terminal is a
-non-interactive, non-login shell that never sources `~/.zshrc`, so it won't
-have whatever `PATH` entry makes `claude` resolve interactively (this fails
-with `exec: claude: not found`). `$CLAUDE_CODE_EXECPATH` is the current
-instance's own fully-qualified executable path, so it needs no `PATH`
-lookup at all. Note it points at the exact running version (e.g.
+Note `$CLAUDE_CODE_EXECPATH` points at the exact running version (e.g.
 `~/.local/share/claude/versions/2.1.203`), not a stable "latest" symlink —
 that's fine here since the point is to launch the same version as the
 current instance.
@@ -86,20 +104,19 @@ was launched and the workspace is just sitting there empty.
 
 To have the new instance start on a specific task right away (e.g. "run a
 code review in a new workspace") rather than opening an empty Claude
-prompt, append the task as a positional argument to `claude` — `claude
-[prompt]` accepts one and starts the interactive session with it as the
-first message. Shell-escape it with `printf '%q'` so quotes or special
-characters in the task text can't break the command line:
+prompt, add the task as one more nested `printf '%q'` argument —
+`claude [prompt]` accepts one and starts the interactive session with it
+as the first message:
 
 ```bash
-casper workspace new --branch <name> \
-  --command "$CLAUDE_CODE_EXECPATH $(printf '%q' "Review the diff in this workspace for bugs.")"
+casper workspace new --branch <name> --command \
+  "/bin/sh -c $(printf '%q' "PATH=$(printf '%q' "$PATH") exec $(printf '%q' "$CLAUDE_CODE_EXECPATH") $(printf '%q' "Review the diff in this workspace for bugs.")")"
 ```
 
-Keep this as one inline command (command substitution, not separate
-`prompt=...; cmd=...` statements) so the invocation still starts with
-`casper workspace new` and matches this skill's pre-authorized
-`allowed-tools` prefix.
+Keep it as one nested expression (no intermediate `inner=...`/`outer=...`
+variables in separate statements) so the actual tool invocation still
+starts with `casper workspace new` and matches this skill's
+pre-authorized `allowed-tools` prefix.
 
 Only run this when the user explicitly asks for a new workspace/worktree —
 never on your own judgment. This mirrors the existing rule not to create a
