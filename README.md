@@ -31,6 +31,16 @@ Claude Code turn even if Casper isn't running.
 - `python3` (ships with Xcode Command Line Tools) — needed for the
   `notification.py` and `post-tool-use-tasks.py` hooks.
 
+## Installation
+
+This repo self-hosts a plugin marketplace, so it can be installed directly
+from Claude Code:
+
+```
+/plugin marketplace add alexandreroman/casper-claude-plugin
+/plugin install casper@casper-claude-plugin
+```
+
 ## Local development / testing
 
 No marketplace or install step is needed for local development:

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "casper-claude-plugin",
+  "description": "Marketplace for the casper Claude Code plugin.",
+  "owner": {
+    "name": "Alexandre Roman",
+    "email": "alexandre.roman@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "casper",
+      "source": "./",
+      "description": "Wires Claude Code's hook lifecycle to the casper CLI (status, notify, progress) for Casper workspace terminals.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Alexandre Roman",
+        "email": "alexandre.roman@gmail.com"
+      },
+      "homepage": "https://github.com/alexandreroman/casper",
+      "tags": ["casper", "terminal", "workspace", "hooks"]
+    }
+  ]
+}
