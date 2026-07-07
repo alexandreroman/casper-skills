@@ -38,7 +38,7 @@ skills.
 ## Creating a workspace: explicit request only
 
 ```bash
-casper workspace new --branch <name> [--base <ref>]
+casper workspace new --branch <name> [--base <ref>] [--command <cmd>]
 ```
 
 creates a new Git worktree workspace on a new branch (a sibling of the
@@ -49,6 +49,8 @@ current workspace's Space), printing:
 ```
 
 `--base` defaults to the Space's primary workspace's branch if omitted.
+`--command` is optional — omit it for an empty initial terminal, or pass a
+command to run immediately in the new workspace's terminal.
 
 Only run this when the user explicitly asks for a new workspace/worktree —
 never on your own judgment. This mirrors the existing rule not to create a

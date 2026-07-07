@@ -12,6 +12,7 @@ grep -q "CASPER_WORKSPACE_ID\|Casper terminal" "$FILE" || fail "missing guard-ru
 grep -q "casper workspace list" "$FILE" || fail "missing casper workspace list example"
 grep -q "casper workspace current" "$FILE" || fail "missing casper workspace current example"
 grep -q "casper workspace new --branch" "$FILE" || fail "missing casper workspace new example"
+grep -q -- "--command" "$FILE" || fail "missing --command documentation"
 grep -q "casper workspace delete" "$FILE" || fail "missing casper workspace delete example"
 grep -q "^allowed-tools:.*casper workspace list" "$FILE" || fail "missing allowed-tools pre-authorization for casper workspace list"
 grep -q "^allowed-tools:.*casper workspace current" "$FILE" || fail "missing allowed-tools pre-authorization for casper workspace current"
