@@ -1,6 +1,7 @@
 ---
 name: casper-diff
 description: Open a Casper workspace's diff view when the user explicitly asks to see a diff, in full or for a particular file. Only useful inside a Casper terminal workspace.
+allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper diff open *)
 ---
 
 # Casper diff
@@ -26,4 +27,11 @@ when the user asks.
 
 Only invoke this skill inside a Casper terminal workspace. The plugin sets
 the `CASPER_WORKSPACE_ID` environment variable in each Casper terminal it
-opens — check for its presence before calling the CLI.
+opens — check for its presence with the same plain test the plugin's own
+hooks use, not by echoing the variable:
+
+```bash
+[ -n "$CASPER_WORKSPACE_ID" ]
+```
+
+Then call the CLI as its own command.
