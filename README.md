@@ -16,7 +16,7 @@ required.
 | `SessionEnd` | `status set done` |
 | `PostToolUse` (`TaskCreate`/`TaskUpdate`) | mirrors Claude's task list into `progress set`/`progress clear` |
 
-Three fallback skills let Claude reach for the `casper` CLI itself for
+Five fallback skills let Claude reach for the `casper` CLI itself for
 judgment calls no hook can infer automatically:
 
 - `casper-status` — call `casper status set blocked` / `casper status set
@@ -25,6 +25,11 @@ judgment calls no hook can infer automatically:
   asks to see something in a browser.
 - `casper-diff` — open Casper's diff view when the user asks to see a diff,
   in full or for one file.
+- `casper-terminal` — open, list, and close terminals in the workspace,
+  including on Claude's own judgment when a command should run somewhere
+  visible or interactive rather than in the background.
+- `casper-workspace` — list workspaces or resolve the current one anytime;
+  create or delete a workspace (Git worktree) only on explicit request.
 
 Every hook is a no-op outside a Casper terminal — it checks for
 `$CASPER_WORKSPACE_ID` before doing anything, and never blocks or fails a
