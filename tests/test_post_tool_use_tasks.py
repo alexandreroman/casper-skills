@@ -10,6 +10,24 @@ def make_stub_casper(stub_dir):
     with open(stub_path, "w") as f:
         f.write(
             "#!/usr/bin/env bash\n"
+            "# Mirror the real casper CLI: 'progress set' rejects an out-of-range\n"
+            "# --current, so a regression fails loudly instead of being logged.\n"
+            'if [[ "$1" == "progress" && "$2" == "set" ]]; then\n'
+            "    total=0\n"
+            "    current=0\n"
+            '    args=("$@")\n'
+            "    for ((i = 0; i < ${#args[@]}; i++)); do\n"
+            '        case "${args[i]}" in\n'
+            '            --total) total="${args[i + 1]}" ;;\n'
+            '            --current) current="${args[i + 1]}" ;;\n'
+            "        esac\n"
+            "    done\n"
+            "    if ((current < 1 || current > total)); then\n"
+            "        printf 'error: invalid progress %s/%s (need 1 <= current <= total)\\n' "
+            '"$current" "$total" >&2\n'
+            "        exit 1\n"
+            "    fi\n"
+            "fi\n"
             "printf '%s\\n' \"$@\" >> \"$CASPER_LOG\"\n"
             "printf -- '---\\n' >> \"$CASPER_LOG\"\n"
         )
@@ -49,14 +67,13 @@ class TestPostToolUseTasks(unittest.TestCase):
         with open(self.log_path) as f:
             return f.read()
 
-    def test_create_sets_progress_with_working_label(self):
+    def test_create_without_in_progress_task_is_noop(self):
         self.run_hook(
             "TaskCreate",
             {"subject": "Write tests", "description": "d", "activeForm": "Writing tests"},
             "Task #1 created successfully: Write tests",
         )
-        expected = "progress\nset\n--total\n1\n--current\n0\n--label\nworking\n---\n"
-        self.assertEqual(self.log_tail(), expected)
+        self.assertEqual(self.log_tail(), "")
 
     def test_in_progress_uses_active_form_label(self):
         self.run_hook(
@@ -66,7 +83,7 @@ class TestPostToolUseTasks(unittest.TestCase):
         )
         self.clear_log()
         self.run_hook("TaskUpdate", {"taskId": "1", "status": "in_progress"}, "Updated task #1 to in_progress")
-        expected = "progress\nset\n--total\n1\n--current\n0\n--label\nWriting tests\n---\n"
+        expected = "progress\nset\n--total\n1\n--current\n1\n--label\nWriting tests\n---\n"
         self.assertEqual(self.log_tail(), expected)
 
     def test_all_completed_clears_progress(self):
@@ -93,8 +110,7 @@ class TestPostToolUseTasks(unittest.TestCase):
         )
         self.clear_log()
         self.run_hook("TaskUpdate", {"taskId": "1", "status": "deleted"}, "Updated task #1 deleted")
-        expected = "progress\nset\n--total\n1\n--current\n0\n--label\nworking\n---\n"
-        self.assertEqual(self.log_tail(), expected)
+        self.assertEqual(self.log_tail(), "")
 
     def test_sessions_do_not_share_state(self):
         self.run_hook(
@@ -114,8 +130,29 @@ class TestPostToolUseTasks(unittest.TestCase):
             {"subject": "C", "description": "d", "activeForm": "Doing C"},
             "Task #1 created successfully: C",
         )
-        expected = "progress\nset\n--total\n1\n--current\n0\n--label\nworking\n---\n"
-        self.assertEqual(self.log_tail(), expected)
+        self.assertEqual(self.log_tail(), "")
+
+    def test_state_resets_after_batch_completes(self):
+        self.run_hook(
+            "TaskCreate",
+            {"subject": "Old task", "description": "d", "activeForm": "Doing old task"},
+            "Task #1 created successfully: Old task",
+        )
+        self.run_hook("TaskUpdate", {"taskId": "1", "status": "completed"}, "Updated task #1 to completed")
+
+        # The persisted mirror must be empty once the batch completes, so a fresh
+        # batch does not inherit the old completed entries.
+        mirror_path = os.path.join(self.plugin_data, f"{self.session_id}.json")
+        with open(mirror_path) as f:
+            self.assertEqual(json.load(f), {})
+
+        self.clear_log()
+        self.run_hook(
+            "TaskCreate",
+            {"subject": "New task", "description": "d", "activeForm": "Doing new task"},
+            "Task #2 created successfully: New task",
+        )
+        self.assertEqual(self.log_tail(), "")
 
     def test_unknown_tool_name_is_noop(self):
         self.run_hook("SomeOtherTool", {}, "irrelevant")

@@ -74,13 +74,20 @@ def main():
     completed = sum(1 for t in state.values() if t["status"] == "completed")
 
     if total == 0 or completed == total:
+        # Reset the persisted mirror so the next TaskCreate in this session
+        # counts a fresh batch from zero instead of inheriting stale entries.
+        save_state(path, {})
         run_casper(["progress", "clear"])
         return
 
     label = next((t["activeForm"] or t["subject"] for t in state.values() if t["status"] == "in_progress"), None)
     if not label:
-        label = "working"
-    run_casper(["progress", "set", "--total", str(total), "--current", str(completed), "--label", label])
+        # No in-progress task has a real label to show, so leave the progress
+        # bar as-is instead of inventing text Claude never produced.
+        return
+    # casper treats --current as the 1-based index of the current task, so the
+    # in-progress (or next pending) task sits at completed + 1.
+    run_casper(["progress", "set", "--total", str(total), "--current", str(completed + 1), "--label", label])
 
 if __name__ == "__main__":
     main()
