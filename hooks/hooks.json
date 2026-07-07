@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && ${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh || true",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
