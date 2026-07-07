@@ -21,6 +21,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && ${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh || true",
+            "timeout": 3
+          }
+        ]
+      }
     ]
   }
 }
