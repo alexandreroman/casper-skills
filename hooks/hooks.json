@@ -55,6 +55,17 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.sh\" || true",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "TaskCreate|TaskUpdate",

@@ -44,12 +44,23 @@ class TestNotification(unittest.TestCase):
 
     def test_permission_prompt_maps_to_friendly_text(self):
         self.run_hook({"notification_type": "permission_prompt"})
-        expected = "notify\n--message\nClaude needs your permission to continue\n---\n"
+        expected = (
+            "status\nset\nblocked\n---\n"
+            "notify\n--message\nClaude needs your permission to continue\n---\n"
+        )
         self.assertEqual(self.log_tail(), expected)
 
     def test_idle_prompt_maps_to_friendly_text(self):
         self.run_hook({"notification_type": "idle_prompt"})
         expected = "notify\n--message\nClaude is waiting for your input\n---\n"
+        self.assertEqual(self.log_tail(), expected)
+
+    def test_elicitation_dialog_sets_blocked_status(self):
+        self.run_hook({"notification_type": "elicitation_dialog"})
+        expected = (
+            "status\nset\nblocked\n---\n"
+            "notify\n--message\nClaude needs additional input\n---\n"
+        )
         self.assertEqual(self.log_tail(), expected)
 
     def test_auth_success_is_skipped(self):
