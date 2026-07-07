@@ -50,25 +50,56 @@ current workspace's Space), printing:
 
 `--base` defaults to the Space's primary workspace's branch if omitted.
 `--command` is optional — omit it for an empty initial terminal, or pass a
-command to run immediately in the new workspace's terminal.
+command to run immediately in the new workspace's terminal. **If omitted,
+the new workspace's terminal stays an empty shell — nothing runs in it
+automatically.**
 
-### Launching a new Claude instance with `--command`
+### Default to launching a new Claude instance there
 
-Don't pass a bare `claude` — a new workspace's terminal is a
-non-interactive, non-login shell that never sources `~/.zshrc`, so it won't
-have whatever `PATH` entry makes `claude` resolve interactively (this fails
-with `exec: claude: not found`). Use the current instance's own executable
-path instead, exposed via `$CLAUDE_CODE_EXECPATH`:
+If the request implies work should actually happen in the new
+workspace — "explore X in a new workspace", "fix this in a new worktree",
+"spin up a workspace and look into Y" — creating the workspace alone does
+**not** satisfy that; an empty terminal can't explore or fix anything.
+Always add `--command` to start a new Claude instance there in the same
+call, unless the user explicitly only wants the workspace/worktree itself
+with nothing running in it:
 
 ```bash
 casper workspace new --branch <name> --command "$CLAUDE_CODE_EXECPATH"
 ```
 
-This is a fully-qualified path, so it needs no `PATH` lookup at all. Note it
-points at the exact running version (e.g.
+Don't pass a bare `claude` — a new workspace's terminal is a
+non-interactive, non-login shell that never sources `~/.zshrc`, so it won't
+have whatever `PATH` entry makes `claude` resolve interactively (this fails
+with `exec: claude: not found`). `$CLAUDE_CODE_EXECPATH` is the current
+instance's own fully-qualified executable path, so it needs no `PATH`
+lookup at all. Note it points at the exact running version (e.g.
 `~/.local/share/claude/versions/2.1.203`), not a stable "latest" symlink —
 that's fine here since the point is to launch the same version as the
 current instance.
+
+After creating it, use `casper terminal list --workspace <id>` to confirm
+the terminal actually has a `"command"` field — if it's missing, no command
+was launched and the workspace is just sitting there empty.
+
+### Giving that instance a task to work on
+
+To have the new instance start on a specific task right away (e.g. "run a
+code review in a new workspace") rather than opening an empty Claude
+prompt, append the task as a positional argument to `claude` — `claude
+[prompt]` accepts one and starts the interactive session with it as the
+first message. Shell-escape it with `printf '%q'` so quotes or special
+characters in the task text can't break the command line:
+
+```bash
+casper workspace new --branch <name> \
+  --command "$CLAUDE_CODE_EXECPATH $(printf '%q' "Review the diff in this workspace for bugs.")"
+```
+
+Keep this as one inline command (command substitution, not separate
+`prompt=...; cmd=...` statements) so the invocation still starts with
+`casper workspace new` and matches this skill's pre-authorized
+`allowed-tools` prefix.
 
 Only run this when the user explicitly asks for a new workspace/worktree —
 never on your own judgment. This mirrors the existing rule not to create a

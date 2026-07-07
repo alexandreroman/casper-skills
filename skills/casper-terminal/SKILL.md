@@ -58,6 +58,23 @@ points at the exact running version (e.g.
 that's fine here since the point is to launch the same version as the
 current instance.
 
+To have that instance start on a specific task right away (e.g. "run a
+code review here") instead of opening an empty Claude prompt, append the
+task as a positional argument — `claude [prompt]` accepts one and starts
+the interactive session with it as the first message. Shell-escape it with
+`printf '%q'` so quotes or special characters in the task text can't break
+the command line:
+
+```bash
+casper terminal new \
+  --command "$CLAUDE_CODE_EXECPATH $(printf '%q' "Review the diff in this workspace for bugs.")"
+```
+
+Keep this as one inline command (command substitution, not separate
+`prompt=...; cmd=...` statements) so the invocation still starts with
+`casper terminal new` and matches this skill's pre-authorized
+`allowed-tools` prefix.
+
 ## Listing and closing
 
 If the id was lost (e.g. after a context compaction), recover it with:
