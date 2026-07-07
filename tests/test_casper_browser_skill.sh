@@ -10,5 +10,6 @@ grep -q "^name: casper-browser" "$FILE" || fail "missing name in frontmatter"
 grep -q "^description:" "$FILE" || fail "missing description in frontmatter"
 grep -q "CASPER_WORKSPACE_ID\|Casper terminal" "$FILE" || fail "missing guard-rule mention"
 grep -q "casper browser open" "$FILE" || fail "missing casper browser open example"
+grep -q "^allowed-tools:.*casper browser open" "$FILE" || fail "missing allowed-tools pre-authorization for casper browser open"
 
 echo "PASS"
