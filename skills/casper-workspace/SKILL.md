@@ -1,7 +1,7 @@
 ---
 name: casper-workspace
-description: List Casper workspaces, resolve the current one, or create/delete a workspace (Git worktree) — list/current are safe to use anytime, new/delete only on explicit user request. Only useful inside a Casper terminal workspace.
-allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace list) Bash(casper workspace current) Bash(casper workspace new *) Bash(casper workspace delete) Bash(casper workspace delete *)
+description: List Casper workspaces, resolve the current one, create a workspace (Git worktree), delete one outright (discards its work, no merge), or close/merge one back into its origin branch first (rebase, merge commit, then delete) — list/current are safe anytime; new/delete/close/merge only on explicit request, and both delete and close/merge are destructive and irreversible. Only useful inside a Casper terminal workspace.
+allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace list) Bash(casper workspace current) Bash(casper workspace new *) Bash(casper workspace delete) Bash(casper workspace delete *) Bash(git worktree list) Bash(git status --porcelain*)
 ---
 
 # Casper workspace
@@ -133,11 +133,99 @@ entry — **immediately**. There is no confirmation prompt and no
 `--force`/`-y` gate anywhere in the CLI; calling the command is the only
 confirmation there is, and it cannot be undone.
 
+This is a plain, unconditional delete: it does **not** merge or otherwise
+preserve the branch's commits anywhere first — once the branch and
+worktree are gone, that work is gone with them. Use this when the user
+wants to discard the workspace's work entirely; use the "Closing
+(merging)" procedure below when they want to keep it.
+
 Only run this when the user explicitly asks, and if there's any ambiguity
 about *which* workspace, confirm the id or name with the user before
 calling it — the CLI itself won't stop a mistaken call. (It refuses to
 delete a Space's primary workspace on its own: `"cannot delete the primary
 workspace"`.)
+
+## Closing (merging) a workspace: explicit request only, destructive, and irreversible
+
+"Close this workspace" or "merge this workspace/worktree" means running
+this exact five-step procedure — not just `casper workspace delete`. If
+the user instead wants to throw the workspace's work away without merging
+it anywhere, that's the plain delete described above, not this procedure —
+confirm which one they mean if it's unclear.
+
+1. Identify the origin branch (the branch this workspace's branch forked
+   from — most often `main`).
+2. Verify the current branch **and** the origin branch are both clean.
+   Stop if either has uncommitted or untracked changes.
+3. `git rebase` the current branch onto the origin branch.
+4. Merge the current branch into the origin branch with an explicit merge
+   commit.
+5. Close (delete) the current workspace.
+
+**Confirm the plan with the user before running any of steps 3-5** — state
+the origin branch, both worktree paths, and which workspace will be
+deleted, and wait for explicit confirmation. This applies even if the
+request ("close this workspace") sounded unambiguous — the user needs to
+see the plan before history gets rewritten and a workspace gets deleted.
+
+**If any step fails, stop the whole procedure immediately.** Don't attempt
+the remaining steps, don't auto-resolve conflicts, and don't delete the
+workspace unless Step 4's merge actually succeeded — a conflict that looks
+trivial still means stop and let the user decide.
+
+### Step 1: identify the origin branch
+
+```bash
+git worktree list
+```
+
+The first line is the Space's primary worktree — its branch is the origin
+branch (usually `main`). Record its path as `<origin-path>` and its branch
+as `<origin-branch>`.
+
+### Step 2: verify both branches are clean
+
+```bash
+git -C <current-workspace-path> status --porcelain
+git -C <origin-path> status --porcelain
+```
+
+Any output (staged, unstaged, or untracked) means that tree is dirty.
+**Stop here and report which branch is dirty** — never rebase or merge a
+dirty tree.
+
+### Step 3: rebase
+
+```bash
+cd <current-workspace-path>
+git rebase <origin-branch>
+```
+
+On conflict: **stop**, report the conflicting files, and leave the rebase
+in progress for the user to resolve (or run `git rebase --abort` if they'd
+rather cancel). Do not proceed to Step 4.
+
+### Step 4: merge with a merge commit
+
+```bash
+cd <origin-path>
+git merge --no-ff <current-branch>
+```
+
+`--no-ff` is required — a fast-forward merge would satisfy "merge" but not
+"with a merge commit". On conflict: **stop**, report the conflicting files,
+and leave the merge in progress for the user to resolve (or
+`git merge --abort`). Do not proceed to Step 5.
+
+### Step 5: close the workspace
+
+```bash
+casper workspace delete --workspace <current-workspace-id-or-name>
+```
+
+Run this from `<origin-path>` (or any workspace other than the one being
+closed) — deleting removes that worktree folder out from under the shell's
+CWD if run from inside it. Only run this after Step 4's merge succeeded.
 
 ## Targeting another workspace
 
