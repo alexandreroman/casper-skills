@@ -12,7 +12,7 @@ chmod +x "$STUB_DIR/casper"
 
 PATH="$STUB_DIR:$PATH" CASPER_LOG="$LOG" "$DIR/hooks/stop.sh"
 
-expected=$'status\nset\nidle\n---\nnotify\n--message\nClaude is done and waiting for you\n---'
+expected=$'status\nset\nidle\n---'
 actual="$(cat "$LOG")"
 if [ "$actual" != "$expected" ]; then
   echo "FAIL: expected [$expected], got [$actual]"

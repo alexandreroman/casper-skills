@@ -3,30 +3,35 @@ import json, subprocess, sys
 
 FRIENDLY = {
     "permission_prompt": "Claude needs your permission to continue",
-    "idle_prompt": "Claude is waiting for your input",
     "elicitation_dialog": "Claude needs additional input",
 }
 
-# These types fire mid-turn while Claude is waiting on the user for something
-# other than the next prompt (a permission grant, extra tool input) — that's
-# exactly the "blocked" state, so set it deterministically instead of relying
-# on the casper-status skill's judgment call. idle_prompt is excluded: it's
-# just the ordinary between-turns wait that stop.sh already marks "idle".
+# Strict allowlist: only these two types mean "Claude is waiting on the user
+# mid-task for something other than the next prompt" (a permission grant, extra
+# tool input) — that's exactly the "blocked" state. Every other type, including
+# idle_prompt, auth_success, and any unknown/future notification_type, stays
+# silent by design: Casper's detection engine covers ordinary idle/turn-end
+# events on its own, so notifying here would just duplicate it.
+#
+# agent_needs_input was considered — it plausibly also means "needs the user" —
+# but is deliberately excluded for now: it's a newer, less-understood signal,
+# not confirmed to fire for a plain Claude Code CLI session inside a Casper
+# terminal.
 BLOCKING_TYPES = {"permission_prompt", "elicitation_dialog"}
 
 def main():
     payload = json.load(sys.stdin)
     notification_type = payload.get("notification_type", "")
-    if notification_type == "auth_success":
+    if notification_type not in BLOCKING_TYPES:
         return
-    if notification_type in BLOCKING_TYPES:
-        try:
-            subprocess.run(
-                ["casper", "status", "set", "blocked"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2,
-            )
-        except Exception:
-            pass
+    try:
+        subprocess.run(
+            ["casper", "status", "set", "blocked"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2,
+        )
+    except Exception:
+        pass
+    # Prefer Claude Code's own message (more specific) over the canned text.
     message = payload.get("message") or FRIENDLY.get(notification_type, "Claude needs your attention")
     try:
         subprocess.run(

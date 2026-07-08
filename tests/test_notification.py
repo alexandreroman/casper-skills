@@ -37,10 +37,17 @@ class TestNotification(unittest.TestCase):
         with open(self.log_path) as f:
             return f.read()
 
-    def test_forwards_message_field_verbatim(self):
-        self.run_hook({"message": "Custom text"})
-        expected = "notify\n--message\nCustom text\n---\n"
+    def test_message_field_preferred_within_allowlist(self):
+        # A real payload message wins over the canned FRIENDLY text, but only
+        # for an allowlisted type — the message alone never triggers a notify.
+        self.run_hook({"notification_type": "permission_prompt", "message": "Custom text"})
+        expected = "status\nset\nblocked\n---\nnotify\n--message\nCustom text\n---\n"
         self.assertEqual(self.log_tail(), expected)
+
+    def test_message_field_alone_is_silent(self):
+        # No notification_type at all is not in the allowlist: stay silent.
+        self.run_hook({"message": "Custom text"})
+        self.assertEqual(self.log_tail(), "")
 
     def test_permission_prompt_maps_to_friendly_text(self):
         self.run_hook({"notification_type": "permission_prompt"})
@@ -50,10 +57,9 @@ class TestNotification(unittest.TestCase):
         )
         self.assertEqual(self.log_tail(), expected)
 
-    def test_idle_prompt_maps_to_friendly_text(self):
+    def test_idle_prompt_is_silent(self):
         self.run_hook({"notification_type": "idle_prompt"})
-        expected = "notify\n--message\nClaude is waiting for your input\n---\n"
-        self.assertEqual(self.log_tail(), expected)
+        self.assertEqual(self.log_tail(), "")
 
     def test_elicitation_dialog_sets_blocked_status(self):
         self.run_hook({"notification_type": "elicitation_dialog"})
@@ -67,15 +73,13 @@ class TestNotification(unittest.TestCase):
         self.run_hook({"notification_type": "auth_success"})
         self.assertEqual(self.log_tail(), "")
 
-    def test_unknown_type_falls_back_to_generic_message(self):
+    def test_unknown_type_is_silent(self):
         self.run_hook({"notification_type": "something_new"})
-        expected = "notify\n--message\nClaude needs your attention\n---\n"
-        self.assertEqual(self.log_tail(), expected)
+        self.assertEqual(self.log_tail(), "")
 
-    def test_no_fields_at_all_falls_back_to_generic_message(self):
+    def test_no_fields_at_all_is_silent(self):
         self.run_hook({})
-        expected = "notify\n--message\nClaude needs your attention\n---\n"
-        self.assertEqual(self.log_tail(), expected)
+        self.assertEqual(self.log_tail(), "")
 
 
 if __name__ == "__main__":

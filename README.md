@@ -11,8 +11,8 @@ required.
 |---|---|
 | `SessionStart` | `status set idle` + `progress clear` |
 | `UserPromptSubmit` | `status set working` |
-| `Stop` | `status set idle` + `notify --message "Claude is done and waiting for you"` |
-| `Notification` | `notify --message "..."` |
+| `Stop` | `status set idle` (Casper's own detection engine derives the "task finished" notification on its own; this hook no longer notifies) |
+| `Notification` | `status set blocked` + `notify --message "..."` for `permission_prompt`/`elicitation_dialog` only — silent for every other notification type |
 | `SessionEnd` | `status set done` |
 | `PostToolUse` (`TaskCreate`/`TaskUpdate`) | mirrors Claude's task list into `progress set`/`progress clear` |
 
