@@ -1,6 +1,6 @@
 ---
 name: casper-terminal
-description: Open, list, and close terminals in a Casper workspace — including opening one on your own judgment when a command should run somewhere the user can see or interact with it (a dev server, a watch/tail command), not just on explicit request. Only useful inside a Casper terminal workspace.
+description: Open, list, and close terminals in a Casper workspace — always when the user explicitly asks to run or launch something in a terminal, and also on your own judgment when a command should run somewhere the user can see or interact with it (a dev server, a watch/tail command). Only useful inside a Casper terminal workspace.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper terminal new) Bash(casper terminal new *) Bash(casper terminal list) Bash(casper terminal list *) Bash(casper terminal close *)
 ---
 
@@ -11,18 +11,24 @@ terminal` CLI to open, list, and close extra terminals.
 
 ## When to open a new terminal
 
-Unlike `casper-browser`/`casper-diff`, this is not limited to explicit user
-requests — act on your own judgment. The trigger is **visibility**, not
-avoiding a blocking call:
-
-- Open one when the user would benefit from seeing or interacting with a
-  running process themselves in the Casper UI: a dev server they'll open
-  in a browser, a `watch`/tail command, an interactive process — anything
-  long-running that's naturally visible or interactive.
-- Do **not** open one as a silent substitute for the Bash tool's own
-  background execution (`run_in_background: true`). A long build or test
-  run the user has no reason to watch directly stays a normal (optionally
-  backgrounded) Bash call.
+- **Explicit request — always.** If the user asks to run or launch
+  something in a terminal ("lance ça dans un terminal", "run this in a
+  terminal", "launch this in a new terminal/window"), open one with
+  `casper terminal new`. The request itself is sufficient — don't further
+  judge whether the command is long-running, interactive, or worth
+  watching; that judgment call only applies to the case below.
+- **Your own judgment — beyond explicit requests.** Unlike
+  `casper-browser`/`casper-diff`, this skill isn't limited to explicit
+  requests. Open a terminal on your own initiative too, whenever the user
+  would benefit from seeing or interacting with a running process
+  themselves in the Casper UI: a dev server they'll open in a browser, a
+  `watch`/tail command, an interactive process — anything long-running
+  that's naturally visible or interactive. The trigger here is
+  **visibility**, not avoiding a blocking call — do **not** open one as a
+  silent substitute for the Bash tool's own background execution
+  (`run_in_background: true`). A long build or test run the user has no
+  reason to watch directly stays a normal (optionally backgrounded) Bash
+  call.
 
 ```bash
 casper terminal new --command "npm run dev"

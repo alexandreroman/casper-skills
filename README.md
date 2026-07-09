@@ -26,7 +26,8 @@ judgment calls no hook can infer automatically:
 - `casper-diff` — open Casper's diff view when the user asks to see a diff,
   in full or for one file, or close it when asked.
 - `casper-terminal` — open, list, and close terminals in the workspace,
-  including on Claude's own judgment when a command should run somewhere
+  always when the user explicitly asks to run something in a terminal, and
+  also on Claude's own judgment when a command should run somewhere
   visible or interactive rather than in the background.
 - `casper-workspace` — list workspaces or resolve the current one anytime;
   create or delete a workspace (Git worktree) only on explicit request.
