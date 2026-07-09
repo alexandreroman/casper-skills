@@ -49,12 +49,13 @@ worktree).
 ### Launching a new Claude instance with `--command`
 
 `--command`'s value is **typed as literal keystrokes into the new
-terminal's real interactive login shell** (zsh), followed by Enter — it is
-not tokenized or exec'd by Casper itself. Because it's the user's actual
-login shell, it already re-sources `~/.zshrc` and rebuilds `PATH` on its
-own, exactly like a normal (commandless) Casper terminal. That means a
-bare `claude` just works — no `$CLAUDE_CODE_EXECPATH`, no `$PATH`
-re-export, no `/bin/sh -c` wrapping:
+terminal's real interactive login shell** (whatever `$SHELL` resolves to
+for the user — zsh, bash, etc.), followed by Enter — it is not tokenized
+or exec'd by Casper itself. Because it's the user's actual login shell, it
+already re-sources that shell's own profile (`~/.zshrc`, `~/.bash_profile`,
+...) and rebuilds `PATH` on its own, exactly like a normal (commandless)
+Casper terminal. That means a bare `claude` just works — no
+`$CLAUDE_CODE_EXECPATH`, no `$PATH` re-export, no `/bin/sh -c` wrapping:
 
 ```bash
 casper terminal new --command claude
