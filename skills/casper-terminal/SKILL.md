@@ -83,7 +83,7 @@ casper terminal list
 which prints a JSON array, one entry per open terminal:
 
 ```json
-[{"id":"3F2A1C4E-...","working-dir":"...","command":"npm run dev"}]
+[{"terminal":"3F2A1C4E-...","working-dir":"..."}]
 ```
 
 Close a terminal you opened once it's no longer needed:

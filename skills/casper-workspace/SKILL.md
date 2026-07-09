@@ -18,7 +18,7 @@ casper workspace list
 prints a JSON array of every workspace:
 
 ```json
-[{"id":"...","name":"...","branch":"...","path":"..."}]
+[{"workspace":"...","name":"...","branch":"...","path":"..."}]
 ```
 
 ```bash
@@ -38,7 +38,7 @@ skills.
 ## Creating a workspace: explicit request only
 
 ```bash
-casper workspace new --branch <name> [--base <ref>] [--command <cmd>]
+casper workspace new <name> [--base <ref>] [--command <cmd>]
 ```
 
 creates a new Git worktree workspace on a new branch (a sibling of the
@@ -74,7 +74,7 @@ Casper terminal. That means a bare `claude` just works — no
 `$CLAUDE_CODE_EXECPATH`, no `$PATH` re-export, no `/bin/sh -c` wrapping:
 
 ```bash
-casper workspace new --branch <name> --command claude
+casper workspace new <name> --command claude
 ```
 
 ### Giving that instance a task to work on
@@ -88,7 +88,7 @@ argument that gets retyped verbatim into the target shell, which parses
 the quotes itself:
 
 ```bash
-casper workspace new --branch <name> --command \
+casper workspace new <name> --command \
   'claude "Review the diff in this workspace for bugs."'
 ```
 
