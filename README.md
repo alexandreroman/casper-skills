@@ -11,7 +11,7 @@ required.
 |---|---|
 | `SessionStart` | `status set idle` + `progress clear` |
 | `UserPromptSubmit` | `status set working` |
-| `Stop` | `status set idle` (Casper's own detection engine derives the "task finished" notification on its own; this hook no longer notifies) |
+| `Stop` | `status set done` (every hook-driven workspace is permanently under Casper's explicit-authority latch, so its own detection engine can never derive "done" here — Casper collapses it back to `idle` once the workspace is selected) |
 | `Notification` | `status set blocked` + `notify --message "..."` for `permission_prompt`/`elicitation_dialog` only — silent for every other notification type |
 | `SessionEnd` | `status set done` |
 | `PostToolUse` (`TaskCreate`/`TaskUpdate`) | mirrors Claude's task list into `progress set`/`progress clear` |

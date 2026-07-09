@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Only mark the workspace idle. Casper's detection engine derives the
-# edge-triggered "task finished, unseen" notification on its own by scraping the
-# terminal, so an unconditional notify here would just duplicate it.
-casper status set idle >/dev/null 2>&1 || true
+# Report done explicitly. Every workspace this plugin drives is under
+# Casper's explicit-authority latch from the very first `casper status set
+# working` call onward (user-prompt-submit.sh / pre-tool-use.sh) — which
+# permanently suppresses Casper's terminal-scraping detector for it, so
+# detection can never derive "done" here on its own. Casper collapses this
+# back to idle once the workspace is selected (seen).
+casper status set done >/dev/null 2>&1 || true
