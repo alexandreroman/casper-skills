@@ -1,12 +1,12 @@
 ---
 name: casper-browser
-description: Open a URL in a Casper workspace's browser panel, or close the panel, when the user explicitly asks. Only useful inside a Casper terminal workspace.
+description: Open a URL in a Casper workspace's browser panel, or close the panel, when the user asks to see or open a URL — including the URL of an app they're developing (a local dev server, preview, or running build). Only useful inside a Casper terminal workspace.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper browser open *) Bash(casper browser close)
 ---
 
 # Casper browser
 
-When the user explicitly asks you to show something in a browser
+When the user asks you to show or open a URL in a browser
 ("montre-moi ça dans le navigateur", "open this in a browser", "let's see
 the running app"), and you're inside a Casper terminal workspace, open it in
 Casper's browser panel instead of a system browser or another tool:
@@ -14,6 +14,15 @@ Casper's browser panel instead of a system browser or another tool:
 ```bash
 casper browser open <url>
 ```
+
+This very often concerns a **development version of an app** — a local dev
+server, a preview build, or something the user is actively working on
+("ouvre le serveur de dev", "open localhost:3000", "show me the preview",
+"let's see it running on http://…"). Treat any request to open a dev-server
+or running-app URL as a natural trigger for this skill: reach for Casper's
+browser panel rather than telling the user to open it themselves. If you
+just started a dev server in a Casper terminal, offering to open its URL
+here is a good default.
 
 When the user explicitly asks to close it ("ferme le navigateur", "close the
 browser panel", "hide the browser"), collapse it instead:
