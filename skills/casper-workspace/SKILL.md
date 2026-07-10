@@ -1,7 +1,7 @@
 ---
 name: casper-workspace
 description: List Casper workspaces, resolve the current one, create a workspace (Git worktree), delete one outright (discards its work, no merge), or close/merge one back into its origin branch first (rebase, merge commit, then delete) — list/current are safe anytime; new/delete/close/merge only on explicit request, and both delete and close/merge are destructive and irreversible. Only useful inside a Casper terminal workspace.
-allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace list) Bash(casper workspace current) Bash(casper workspace new *) Bash(casper workspace delete) Bash(casper workspace delete *) Bash(git worktree list) Bash(git status --porcelain*)
+allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace list) Bash(casper workspace current) Bash(casper workspace new *) Bash(casper workspace delete) Bash(casper workspace delete *) Bash(git worktree list) Bash(git status --porcelain*)
 ---
 
 # Casper workspace
@@ -117,11 +117,18 @@ worktree are gone, that work is gone with them. Use this when the user
 wants to discard the workspace's work entirely; use the "Closing
 (merging)" procedure below when they want to keep it.
 
-Only run this when the user explicitly asks, and if there's any ambiguity
-about *which* workspace, confirm the id or name with the user before
-calling it — the CLI itself won't stop a mistaken call. (It refuses to
-delete a Space's primary workspace on its own: `"cannot delete the primary
-workspace"`.)
+Only run this when the user explicitly asks. Because this discards the
+workspace's work with no undo, **confirm with the `AskUserQuestion` tool
+before calling `delete`** — don't settle for a free-text prompt and don't
+proceed on implied agreement. Ask a single question whose `header` is
+something like "Delete workspace" and whose body names the exact workspace
+(id or name) about to be deleted and makes clear its branch and commits go
+with it. Offer a "Delete" option first and a "Cancel" option; only run the
+command if the user picks the confirming option (or answers "Other" with an
+unambiguous go-ahead). This matters most when there's any ambiguity about
+*which* workspace — the CLI itself won't stop a mistaken call. (It refuses
+to delete a Space's primary workspace on its own: `"cannot delete the
+primary workspace"`.)
 
 ## Closing (merging) a workspace: explicit request only, destructive, and irreversible
 
@@ -140,11 +147,17 @@ confirm which one they mean if it's unclear.
    commit.
 5. Close (delete) the current workspace.
 
-**Confirm the plan with the user before running any of steps 3-5** — state
-the origin branch, both worktree paths, and which workspace will be
-deleted, and wait for explicit confirmation. This applies even if the
-request ("close this workspace") sounded unambiguous — the user needs to
-see the plan before history gets rewritten and a workspace gets deleted.
+**Confirm the plan with the user before running any of steps 3-5** by
+asking with the `AskUserQuestion` tool — don't settle for a free-text
+prompt and don't proceed on implied agreement. Ask a single question whose
+`header` is something like "Close workspace" and whose body states the
+origin branch, both worktree paths, and which workspace will be deleted.
+Offer a "Confirm" option first (so it reads as the recommended path) and a
+"Cancel" option; only run steps 3-5 if the user picks the confirming
+option (or answers "Other" with an unambiguous go-ahead). This applies even
+if the request ("close this workspace") sounded unambiguous — the user
+needs to see the plan and actively confirm before history gets rewritten
+and a workspace gets deleted.
 
 **If any step fails, stop the whole procedure immediately.** Don't attempt
 the remaining steps, don't auto-resolve conflicts, and don't delete the
