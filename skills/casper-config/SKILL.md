@@ -1,6 +1,6 @@
 ---
 name: casper-config
-description: Generate or update a repository's .casper.json — the per-repo file Casper reads to seed new workspaces (copyPatterns) and to run named commands (workspace.scripts, including the reserved setup/teardown lifecycle hooks). Use when the user wants to configure Casper for a repo, add a run/test/build command, wire a setup or teardown hook, or control which local files get copied into new worktrees. Authoring works in any Git repo; only the casper run verification step needs a Casper terminal workspace.
+description: Generate or update a repository's .casper.json — the per-repo file Casper reads to seed new workspaces (copyFiles) and to run named commands (workspace.scripts, including the reserved setup/teardown lifecycle hooks). Use when the user wants to configure Casper for a repo, add a run/test/build command, wire a setup or teardown hook, or control which local files get copied into new worktrees. Authoring works in any Git repo; only the casper run verification step needs a Casper terminal workspace.
 allowed-tools: Read Write Edit Glob Grep AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(git rev-parse --show-toplevel) Bash(git add *) Bash(git commit *) Bash(casper run *)
 ---
 
@@ -24,7 +24,7 @@ other sections still decodes.
 ```json
 {
   "workspace": {
-    "copyPatterns": [".env", ".env.local"],
+    "copyFiles": [".env", ".env.local"],
     "scripts": {
       "setup":    "npm install",
       "teardown": "docker compose down",
@@ -56,7 +56,7 @@ A map of name → shell command string.
   derives the button label by splitting on `-`/`_` and capitalizing, so
   `build-app` shows as "Build App".
 
-### `workspace.copyPatterns` — seed local files into new worktrees
+### `workspace.copyFiles` — seed local files into new worktrees
 
 An optional array of `fnmatch(3)` patterns. When Casper creates a workspace
 (a Git worktree), it copies every untracked file whose **basename** matches a
@@ -71,7 +71,7 @@ runnable immediately.
 - Patterns match the last path component only: `.env` matches literally
   anywhere in the tree; `*.local` matches any file ending in `.local`.
 
-Only add `copyPatterns` to **broaden** past the defaults (e.g. `.env.*`,
+Only add `copyFiles` to **broaden** past the defaults (e.g. `.env.*`,
 `config/*.local.json`). Never copy build artifacts, `node_modules`, or large
 directories.
 
@@ -83,7 +83,7 @@ Always write to the **repo root**:
 git rev-parse --show-toplevel
 ```
 
-For `setup` and `copyPatterns` to affect a **newly created** workspace, the
+For `setup` and `copyFiles` to affect a **newly created** workspace, the
 file must be **committed on the base branch** the new worktree forks from — a
 new worktree only sees what's committed on its base. So after writing, offer to
 commit `.casper.json`. (The `casper run` named commands and the UI buttons are
@@ -103,7 +103,7 @@ shares the same config.)
    find to `setup` (install/deps), `run` (the dev/serve command — this becomes
    the default `casper run`), `test`, `build`, and `teardown` (only when there's
    something to tear down, e.g. a `docker-compose.yml`).
-4. **Propose `copyPatterns` only when the repo needs more than the defaults.**
+4. **Propose `copyFiles` only when the repo needs more than the defaults.**
    Skim `.gitignore` for local runtime files (`.env*`, `*.local`, …). If the
    defaults (`.env`, `.env.local`) already cover it, leave the key out.
 5. **Confirm the proposed JSON with the user before writing.** Present the exact
@@ -169,7 +169,7 @@ casper run setup   # {"error":"'setup' is a reserved lifecycle hook, not a runna
   (e.g. `reset`).
 - **An empty command string is ignored** — it's the same as not defining the
   key, and it won't show up as a command or run as a hook.
-- **New worktrees only see committed config.** If `setup` or `copyPatterns`
+- **New worktrees only see committed config.** If `setup` or `copyFiles`
   seem not to fire for a freshly created workspace, check that `.casper.json` is
   committed on the base branch.
 
