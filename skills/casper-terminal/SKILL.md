@@ -46,7 +46,13 @@ process is no longer needed. `--command` is optional (omit it for an empty
 shell); `--working-dir <path>` overrides the default (the workspace's
 worktree).
 
-### Launching a new Claude instance with `--command`
+### Launching a new agent instance with `--command`
+
+To launch a coding agent in the new terminal, default to a fresh instance
+of **your own agent CLI** — the same one you're running as. The examples
+below use `claude` as a concrete stand-in; substitute whatever CLI
+actually applies (`claude`, `codex`, `gemini`, `aider`, …), and if the
+user names a specific agent, use that one.
 
 `--command`'s value is **typed as literal keystrokes into the new
 terminal's real interactive login shell** (whatever `$SHELL` resolves to
@@ -54,22 +60,23 @@ for the user — zsh, bash, etc.), followed by Enter — it is not tokenized
 or exec'd by Casper itself. Because it's the user's actual login shell, it
 already re-sources that shell's own profile (`~/.zshrc`, `~/.bash_profile`,
 ...) and rebuilds `PATH` on its own, exactly like a normal (commandless)
-Casper terminal. That means a bare `claude` just works — no
-`$CLAUDE_CODE_EXECPATH`, no `$PATH` re-export, no `/bin/sh -c` wrapping:
+Casper terminal. That means a bare invocation of the agent CLI just
+works — no need to re-export `$PATH` and no `/bin/sh -c` wrapping:
 
 ```bash
-casper terminal new --command claude
+casper terminal new --command <agent-cli>   # e.g. claude, codex, gemini
 ```
 
 To have that instance start on a specific task right away (e.g. "run a
-code review here") instead of opening an empty Claude prompt, pass the
-task as `claude`'s prompt argument. Quote it normally, the way you'd type
-it at a shell prompt — no `printf '%q'` gymnastics needed, since the whole
-`--command` value is a single already-expanded CLI argument that gets
-retyped verbatim into the target shell, which parses the quotes itself:
+code review here") instead of opening an empty agent prompt, pass the
+task as the agent CLI's prompt argument. Quote it normally, the way you'd
+type it at a shell prompt — no `printf '%q'` gymnastics needed, since the
+whole `--command` value is a single already-expanded CLI argument that
+gets retyped verbatim into the target shell, which parses the quotes
+itself:
 
 ```bash
-casper terminal new --command 'claude "Review the diff in this workspace for bugs."'
+casper terminal new --command '<agent-cli> "Review the diff in this workspace for bugs."'   # e.g. claude "…"
 ```
 
 ## Listing and closing

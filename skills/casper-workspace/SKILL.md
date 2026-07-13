@@ -1,6 +1,6 @@
 ---
 name: casper-workspace
-description: List Casper workspaces, resolve the current one, create a workspace (Git worktree), delete one outright (discards its work, no merge), or close/merge one back into its origin branch first (rebase, merge commit, then delete) — list/current are safe anytime; new/delete/close/merge only on explicit request, and both delete and close/merge are destructive and irreversible. Only useful inside a Casper terminal workspace.
+description: List Casper workspaces, resolve the current one, create a workspace (Git worktree) — including to offload or delegate a task to a dedicated coding-agent instance running isolated in its own worktree instead of the current session — delete one outright (discards its work, no merge), or close/merge one back into its origin branch first (rebase, merge commit, then delete). list/current are safe anytime; new/delete/close/merge only on explicit request, and both delete and close/merge are destructive and irreversible. Only useful inside a Casper terminal workspace.
 allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace list) Bash(casper workspace current) Bash(casper workspace new *) Bash(casper workspace delete) Bash(casper workspace delete *) Bash(git worktree list) Bash(git status --porcelain*)
 ---
 
@@ -54,15 +54,21 @@ command to run immediately in the new workspace's terminal. **If omitted,
 the new workspace's terminal stays an empty shell — nothing runs in it
 automatically.**
 
-### Default to launching a new Claude instance there
+### Default to launching a new agent instance there
 
 If the request implies work should actually happen in the new
 workspace — "explore X in a new workspace", "fix this in a new worktree",
 "spin up a workspace and look into Y" — creating the workspace alone does
 **not** satisfy that; an empty terminal can't explore or fix anything.
-Always add `--command` to start a new Claude instance there in the same
-call, unless the user explicitly only wants the workspace/worktree itself
-with nothing running in it.
+Always add `--command` to start a new coding-agent instance there in the
+same call, unless the user explicitly only wants the workspace/worktree
+itself with nothing running in it.
+
+By default, launch a fresh instance of **your own agent CLI** — the same
+one you're running as — so the new workspace continues in the same kind of
+agent. The examples below use `claude` as a concrete stand-in; substitute
+whatever CLI actually applies (`claude`, `codex`, `gemini`, `aider`, …),
+and if the user names a specific agent, use that one.
 
 `--command`'s value is **typed as literal keystrokes into the new
 terminal's real interactive login shell** (whatever `$SHELL` resolves to
@@ -70,35 +76,69 @@ for the user — zsh, bash, etc.), followed by Enter — it is not tokenized
 or exec'd by Casper itself. Because it's the user's actual login shell, it
 already re-sources that shell's own profile (`~/.zshrc`, `~/.bash_profile`,
 ...) and rebuilds `PATH` on its own, exactly like a normal (commandless)
-Casper terminal. That means a bare `claude` just works — no
-`$CLAUDE_CODE_EXECPATH`, no `$PATH` re-export, no `/bin/sh -c` wrapping:
+Casper terminal. That means a bare invocation of the agent CLI just
+works — no need to re-export `$PATH` and no `/bin/sh -c` wrapping:
 
 ```bash
-casper workspace new <name> --command claude
+casper workspace new <name> --command <agent-cli>   # e.g. claude, codex, gemini
 ```
 
 ### Giving that instance a task to work on
 
 To have the new instance start on a specific task right away (e.g. "run a
-code review in a new workspace") rather than opening an empty Claude
-prompt, pass the task as `claude`'s prompt argument. Quote it normally,
-the way you'd type it at a shell prompt — no `printf '%q'` gymnastics
-needed, since the whole `--command` value is a single already-expanded CLI
-argument that gets retyped verbatim into the target shell, which parses
-the quotes itself:
+code review in a new workspace") rather than opening an empty agent
+prompt, pass the task as the agent CLI's prompt argument. Quote it
+normally, the way you'd type it at a shell prompt — no `printf '%q'`
+gymnastics needed, since the whole `--command` value is a single
+already-expanded CLI argument that gets retyped verbatim into the target
+shell, which parses the quotes itself:
 
 ```bash
 casper workspace new <name> --command \
-  'claude "Review the diff in this workspace for bugs."'
+  '<agent-cli> "Review the diff in this workspace for bugs."'   # e.g. claude "…"
 ```
 
 `--command` is a one-shot instruction, not part of the persisted terminal
 state — `casper terminal list` never reports a `"command"` field (for this
 or any terminal), so don't use its absence to infer the launch failed.
 
-Only run this when the user explicitly asks for a new workspace/worktree —
-never on your own judgment. This mirrors the existing rule not to create a
-Git branch without being asked: `workspace new` always creates one.
+### Offloading a topic to an isolated instance instead of doing it here
+
+The strongest use of a new workspace is to hand a whole topic off to a
+separate agent instance in its own worktree, keeping the current session
+free. Two ways it starts:
+
+- **The user asks** — "traite ça dans un worktree séparé", "lance une
+  instance dédiée", "handle X in isolation". Primary path: create the
+  workspace and launch the instance with the task, as above.
+- **You may propose it** — on your own judgment, when the topic fits the
+  criteria below. Proposing is not launching: you may *suggest* offloading,
+  but you may **not** create the workspace or start the instance until the
+  user says go.
+
+Propose offloading when the topic is:
+- **substantial and self-contained** — a distinct feature, fix, or
+  investigation, not a quick inline edit;
+- **long-running or parallel** — doing it here would block this session or
+  interleave badly with what you're already working on;
+- **disposable or experimental** — you want a throwaway sandbox worktree
+  that can't touch the current one;
+- **tangential** — chasing it here would derail this session's focus.
+
+Do **not** propose it for trivial or inline work, or for work that depends
+on this workspace's **uncommitted** state: `workspace new` branches from a
+committed ref (`--base`), so your current dirty tree won't be in the new
+worktree.
+
+When you do offload, remember the launched instance starts with a **blank
+context window** — it can't see this conversation. Make the agent's prompt
+self-contained: name the files, the decisions already settled, and the
+constraints it must respect.
+
+Whatever the trigger, only *create the workspace or launch the instance*
+once the user has explicitly agreed — never act on your own judgment
+(propose, don't act). This mirrors the existing rule not to create a Git
+branch without being asked: `workspace new` always creates one.
 
 ## Deleting a workspace: explicit request only, and irreversible
 
