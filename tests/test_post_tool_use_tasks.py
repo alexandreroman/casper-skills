@@ -154,6 +154,40 @@ class TestPostToolUseTasks(unittest.TestCase):
         )
         self.assertEqual(self.log_tail(), "")
 
+    def test_update_for_untracked_id_creates_no_phantom(self):
+        # A TaskUpdate for an id the hook never recorded (a failed/stale update
+        # whose PostToolUse still fires) must not materialize a phantom entry.
+        self.run_hook(
+            "TaskCreate",
+            {"subject": "Real task", "description": "d", "activeForm": "Doing real task"},
+            "Task #6 created successfully: Real task",
+        )
+        self.run_hook("TaskUpdate", {"taskId": "1", "status": "in_progress"}, "Task not found")
+
+        mirror_path = os.path.join(self.plugin_data, f"{self.session_id}.json")
+        with open(mirror_path) as f:
+            state = json.load(f)
+        self.assertNotIn("1", state)
+        self.assertEqual(set(state), {"6"})
+
+    def test_stray_failed_update_does_not_wedge_batch_open(self):
+        # Even after a stray failed update for a nonexistent id, completing the
+        # real batch must still clear the bar and reset the persisted mirror.
+        self.run_hook(
+            "TaskCreate",
+            {"subject": "Real task", "description": "d", "activeForm": "Doing real task"},
+            "Task #6 created successfully: Real task",
+        )
+        self.run_hook("TaskUpdate", {"taskId": "1", "status": "in_progress"}, "Task not found")
+        self.run_hook("TaskUpdate", {"taskId": "6", "status": "in_progress"}, "Updated task #6 to in_progress")
+        self.clear_log()
+        self.run_hook("TaskUpdate", {"taskId": "6", "status": "completed"}, "Updated task #6 to completed")
+
+        self.assertEqual(self.log_tail(), "progress\nclear\n---\n")
+        mirror_path = os.path.join(self.plugin_data, f"{self.session_id}.json")
+        with open(mirror_path) as f:
+            self.assertEqual(json.load(f), {})
+
     def test_unknown_tool_name_is_noop(self):
         self.run_hook("SomeOtherTool", {}, "irrelevant")
         self.assertEqual(self.log_tail(), "")

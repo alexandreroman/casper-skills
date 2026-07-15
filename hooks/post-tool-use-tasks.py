@@ -57,14 +57,21 @@ def main():
         status = tool_input.get("status")
         if status == "deleted":
             state.pop(task_id, None)
-        else:
-            entry = state.setdefault(task_id, {"subject": "", "activeForm": "", "status": "pending"})
+        elif task_id in state:
+            # Only mutate a task we already track. A legitimate TaskUpdate is
+            # always preceded by the TaskCreate the hook recorded.
+            entry = state[task_id]
             if status:
                 entry["status"] = status
             if "subject" in tool_input:
                 entry["subject"] = tool_input["subject"]
             if "activeForm" in tool_input:
                 entry["activeForm"] = tool_input["activeForm"]
+        else:
+            # Unknown id: a PostToolUse hook fires even when the TaskUpdate
+            # failed ("Task not found"). Ignore it so no phantom entry is
+            # created that would wedge the progress bar open.
+            return
     else:
         return
 
@@ -80,7 +87,11 @@ def main():
         run_casper(["progress", "clear"])
         return
 
-    label = next((t["activeForm"] or t["subject"] for t in state.values() if t["status"] == "in_progress"), None)
+    label = next(
+        (lbl for t in state.values()
+         if t["status"] == "in_progress" and (lbl := (t["activeForm"] or t["subject"]))),
+        None,
+    )
     if not label:
         # No in-progress task has a real label to show, so leave the progress
         # bar as-is instead of inventing text Claude never produced.
