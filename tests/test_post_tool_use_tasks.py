@@ -61,6 +61,32 @@ class TestPostToolUseTasks(unittest.TestCase):
             env=self.env, timeout=5,
         )
 
+    def run_hooks_concurrently(self, calls):
+        # Launch every hook invocation as its own process at once, mirroring how
+        # Claude Code fires one PostToolUse process per tool call in a turn.
+        payloads = [
+            json.dumps({
+                "session_id": self.session_id,
+                "tool_name": tool_name,
+                "tool_input": tool_input,
+                "tool_response": tool_response,
+            })
+            for tool_name, tool_input, tool_response in calls
+        ]
+        procs = [
+            subprocess.Popen(
+                [sys.executable, SCRIPT], stdin=subprocess.PIPE, text=True,
+                env=self.env,
+            )
+            for _ in payloads
+        ]
+        # Feed each process its payload, then wait, so they run in parallel.
+        for proc, payload in zip(procs, payloads):
+            proc.stdin.write(payload)
+            proc.stdin.close()
+        for proc in procs:
+            proc.wait(timeout=10)
+
     def log_tail(self):
         if not os.path.exists(self.log_path):
             return ""
@@ -187,6 +213,39 @@ class TestPostToolUseTasks(unittest.TestCase):
         mirror_path = os.path.join(self.plugin_data, f"{self.session_id}.json")
         with open(mirror_path) as f:
             self.assertEqual(json.load(f), {})
+
+    def test_concurrent_updates_do_not_corrupt_or_drop_state(self):
+        # Claude Code fires one PostToolUse process per tool call, so a turn that
+        # emits many TaskUpdate calls runs them concurrently against the same
+        # session file. Without an inter-process lock + atomic write, these
+        # unsynchronized read-modify-write cycles interleave: writes clobber each
+        # other (lost updates) or leave stray trailing bytes (corrupt JSON),
+        # which then wedges the progress bar. Every applied update must survive.
+        n = 30
+        for i in range(1, n + 1):
+            self.run_hook(
+                "TaskCreate",
+                {"subject": f"Task {i}", "description": "d", "activeForm": f"Doing task {i}"},
+                f"Task #{i} created successfully: Task {i}",
+            )
+
+        # Vary the label length so interleaved writes differ in size, which is
+        # what leaves the corrupt trailing-byte signature on the state file.
+        updates = [
+            ("TaskUpdate",
+             {"taskId": str(i), "status": "in_progress", "activeForm": "x" * i},
+             f"Updated task #{i} to in_progress")
+            for i in range(1, n + 1)
+        ]
+        self.run_hooks_concurrently(updates)
+
+        mirror_path = os.path.join(self.plugin_data, f"{self.session_id}.json")
+        with open(mirror_path) as f:
+            state = json.load(f)  # raises JSONDecodeError if the file is corrupt
+
+        self.assertEqual(set(state), {str(i) for i in range(1, n + 1)})
+        stuck_pending = [tid for tid, t in state.items() if t["status"] != "in_progress"]
+        self.assertEqual(stuck_pending, [], "some updates were lost to a concurrent-write race")
 
     def test_unknown_tool_name_is_noop(self):
         self.run_hook("SomeOtherTool", {}, "irrelevant")
