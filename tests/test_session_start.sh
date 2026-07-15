@@ -28,4 +28,15 @@ case "$OUT" in
     exit 1
     ;;
 esac
+
+# The guidance must name the turn-end case (asking a question / presenting
+# options is a blocked state), so the model does not treat it as "done".
+case "$OUT" in
+  *"ask me a question or"*"present options"*) ;;
+  *)
+    echo "FAIL: session-start stdout missing turn-end intervention guidance"
+    echo "got: [$OUT]"
+    exit 1
+    ;;
+esac
 echo "PASS"

@@ -9,7 +9,9 @@ cat <<'EOF'
 Casper is available in this workspace. When you need my intervention — a
 decision, a credential, an interactive login, an approval, or an
 unrecoverable error you want me to notice — be explicit and tell me instead
-of silently waiting. Use the Casper notification mechanism:
+of silently waiting. This includes ending a turn to ask me a question or
+present options: that is a blocked state, not a finished one, so notify me.
+Use the Casper notification mechanism:
 
   casper notify --message "<what you need from me>"
   casper status set blocked   # when you're waiting on me mid-turn
