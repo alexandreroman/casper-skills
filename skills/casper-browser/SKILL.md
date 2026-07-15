@@ -21,6 +21,10 @@ in the panel:
 casper browser open <url>
 ```
 
+Only `http` and `https` URLs are supported — the browser panel cannot open
+`file:` (local files), `data:`, or other schemes. To view a local file,
+serve it over HTTP first.
+
 This very often concerns a **development version of an app** — a local dev
 server, a preview build, or something the user is actively working on
 ("ouvre le serveur de dev", "open localhost:3000", "show me the preview",
