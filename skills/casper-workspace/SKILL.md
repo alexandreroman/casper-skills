@@ -187,17 +187,22 @@ confirm which one they mean if it's unclear.
    commit.
 5. Close (delete) the current workspace.
 
-**Confirm the plan with the user before running any of steps 3-5** by
-asking with the `AskUserQuestion` tool — don't settle for a free-text
-prompt and don't proceed on implied agreement. Ask a single question whose
-`header` is something like "Close workspace" and whose body states the
-origin branch, both worktree paths, and which workspace will be deleted.
-Offer a "Confirm" option first (so it reads as the recommended path) and a
-"Cancel" option; only run steps 3-5 if the user picks the confirming
-option (or answers "Other" with an unambiguous go-ahead). This applies even
-if the request ("close this workspace") sounded unambiguous — the user
-needs to see the plan and actively confirm before history gets rewritten
-and a workspace gets deleted.
+**Confirm the plan before running any of steps 3-5 — unless the user's
+request has already clearly confirmed it.** If the user has explicitly
+asked to close/merge a specific workspace (the target and the
+merge-not-discard intent are both unambiguous), that request *is* the
+confirmation: skip the extra prompt and go straight to steps 1-5.
+
+Only ask with the `AskUserQuestion` tool when something is genuinely
+unclear — which workspace to close, or whether the user means merge
+(this procedure) versus discard (the plain `delete` above). When you do
+ask, don't settle for a free-text prompt and don't proceed on implied
+agreement. Ask a single question whose `header` is something like "Close
+workspace" and whose body states the origin branch, both worktree paths,
+and which workspace will be deleted. Offer a "Confirm" option first (so it
+reads as the recommended path) and a "Cancel" option; only run steps 3-5
+if the user picks the confirming option (or answers "Other" with an
+unambiguous go-ahead).
 
 **If any step fails, stop the whole procedure immediately.** Don't attempt
 the remaining steps, don't auto-resolve conflicts, and don't delete the
