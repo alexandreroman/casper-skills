@@ -20,14 +20,20 @@ FRIENDLY = {
 BLOCKING_TYPES = {"permission_prompt", "elicitation_dialog"}
 
 def main():
-    payload = json.load(sys.stdin)
+    try:
+        payload = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        # Empty or malformed stdin: nothing actionable, exit quietly.
+        return
     notification_type = payload.get("notification_type", "")
     if notification_type not in BLOCKING_TYPES:
         return
+    # Two sequential casper calls share the hook's 3s budget (see hooks.json),
+    # so cap each at 1s: even a stalled first call leaves room for the notify.
     try:
         subprocess.run(
             ["casper", "status", "set", "blocked"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1,
         )
     except Exception:
         pass
@@ -36,7 +42,7 @@ def main():
     try:
         subprocess.run(
             ["casper", "notify", "--message", message],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1,
         )
     except Exception:
         pass

@@ -1,7 +1,7 @@
 ---
 name: casper-workspace
 description: List Casper workspaces, resolve the current one, create a workspace (Git worktree) — including to offload or delegate a task to a dedicated coding-agent instance running isolated in its own worktree instead of the current session — delete one outright (discards its work, no merge), or close/merge one back into its origin branch first (rebase, merge commit, then delete). list/current are safe anytime; new/delete/close/merge only on explicit request, and both delete and close/merge are destructive and irreversible. Only useful inside a Casper terminal workspace.
-allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace list) Bash(casper workspace current) Bash(casper workspace new *) Bash(casper workspace delete) Bash(casper workspace delete *) Bash(git worktree list) Bash(git status --porcelain*)
+allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace list) Bash(casper workspace current) Bash(casper workspace new *) Bash(casper workspace delete) Bash(casper workspace delete *) Bash(git worktree list) Bash(git status --porcelain*) Bash(git -C * status --porcelain*) Bash(git rebase *) Bash(git merge *)
 ---
 
 # Casper workspace

@@ -11,6 +11,7 @@ required.
 |---|---|
 | `SessionStart` | `status set idle` + `progress clear` |
 | `UserPromptSubmit` | `status set working` |
+| `PreToolUse` | `status set working` (keeps the explicit-authority latch held for every tool call in a turn, so `Stop` can safely report `done`) |
 | `Stop` | `status set done` (every hook-driven workspace is permanently under Casper's explicit-authority latch, so its own detection engine can never derive "done" here — Casper collapses it back to `idle` once the workspace is selected) |
 | `Notification` | `status set blocked` + `notify --message "..."` for `permission_prompt`/`elicitation_dialog` only — silent for every other notification type |
 | `SessionEnd` | `status set done` |

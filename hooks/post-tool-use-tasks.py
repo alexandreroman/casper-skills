@@ -50,7 +50,11 @@ def extract_created_id(tool_response):
     return match.group(1) if match else None
 
 def main():
-    payload = json.load(sys.stdin)
+    try:
+        payload = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        # Empty or malformed stdin: nothing to mirror, exit quietly.
+        return
     session_id = payload.get("session_id", "default")
     tool_name = payload.get("tool_name")
     tool_input = payload.get("tool_input", {})
@@ -63,6 +67,11 @@ def main():
     # inter-process lock across the whole read-modify-write so their writes can
     # never interleave and clobber each other. The casper call is computed here
     # but run after the lock is released, to keep the lock hold time to file I/O.
+    #
+    # The .lock file is intentionally never unlinked: removing it would let one
+    # process create a fresh inode while another still holds a lock on the old
+    # one, defeating the mutual exclusion. It's a single empty file per session
+    # under a temp dir, which the OS reclaims — leaving it is the correct trade.
     with open(path + ".lock", "w") as lock_fd:
         fcntl.flock(lock_fd, fcntl.LOCK_EX)
         action = update_state(path, tool_name, tool_input, tool_response)
