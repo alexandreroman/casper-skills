@@ -85,7 +85,8 @@ short** inline prompt that just tells it to read that file — do **not**
 `cat` the file into the prompt:
 
 ```bash
-prompt_file="$(mktemp /tmp/casper-agent-prompt.XXXXXX.md)"
+# mktemp only substitutes trailing Xs (BSD/macOS), so add the .md after.
+prompt_file="$(mktemp /tmp/casper-agent-prompt.XXXXXX)" && mv "$prompt_file" "$prompt_file.md" && prompt_file="$prompt_file.md"
 cat > "$prompt_file" <<'EOF'
 Review the diff in this workspace for bugs.
 <...the full, self-contained context goes here...>
