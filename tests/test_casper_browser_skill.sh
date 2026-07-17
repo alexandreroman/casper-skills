@@ -13,7 +13,7 @@ grep -q "casper browser open" "$FILE" || fail "missing casper browser open examp
 grep -q "casper browser close" "$FILE" || fail "missing casper browser close example"
 grep -q "^allowed-tools:.*casper browser \*" "$FILE" || fail "missing allowed-tools pre-authorization for casper browser subcommands"
 # Development helper tools for coding agents
-for sub in screenshot console eval content click type wait reload load; do
+for sub in screenshot console eval content click type wait reload load scroll-down scroll-up scroll-bottom scroll-top; do
   grep -q "casper browser $sub" "$FILE" || fail "missing casper browser $sub reference"
 done
 grep -qi "verify" "$FILE" || fail "missing verification framing for coding agents"

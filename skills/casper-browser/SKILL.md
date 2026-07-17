@@ -59,6 +59,8 @@ real browser before declaring them done.
 | `casper browser click <selector>` | Click the first matching element. |
 | `casper browser type <selector> <text>` | Type text into the first matching element. |
 | `casper browser key <key> [--selector <sel>]` | Dispatch a keydown/keyup (e.g. `Enter`, `Escape`); defaults to the focused element. |
+| `casper browser scroll-down`, `casper browser scroll-up` | Scroll the page down/up by one viewport — reveal content below the fold or step back up. |
+| `casper browser scroll-bottom`, `casper browser scroll-top` | Jump straight to the bottom/top of the page (e.g. trigger infinite-scroll loading, or return to the header). |
 
 Most commands print a JSON object (e.g. `{"result":…,"workspace":…}` or
 `{"console":[…]}`); `eval` and `content` accept `--raw` to print just the
