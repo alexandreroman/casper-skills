@@ -52,7 +52,7 @@ real browser before declaring them done.
 | `casper browser reload [--wait]` | Reload after a rebuild; `--wait` blocks until `readyState` is complete. |
 | `casper browser wait [<selector>] [--js <expr>] [--visible] [--gone] [--timeout <ms>]` | Block until the DOM settles before asserting (default 5000 ms). |
 | `casper browser console [--level <debug\|log\|info\|warn\|error>] [--clear]` | Read captured console output **and uncaught errors** — your primary "did it break?" signal. |
-| `casper browser screenshot [--out <path>] [--url <url>] [--width <w>] [--height <h>]` | Save a PNG. With `--width/--height/--url` it renders off-screen at that viewport, so responsive breakpoints render faithfully. |
+| `casper browser screenshot [--out <path>] [--url <url>] [--width <w>] [--height <h>]` | Save a PNG. Plain, it captures the visible browser panel. But as soon as you pass `--width`, `--height`, or `--url`, the capture happens **off-screen** — it renders at that viewport in a headless page without touching the user's visible panel, so responsive breakpoints render faithfully. |
 | `casper browser content [--selector <sel>] [--raw]` | Print the page's HTML (whole document or one selector) to inspect rendered markup. |
 | `casper browser eval <script> [--raw]` | Evaluate JavaScript and read a value back (assert state, read a store, probe globals). |
 | `casper browser click <selector>` | Click the first matching element. |
