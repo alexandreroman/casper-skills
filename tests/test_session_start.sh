@@ -39,4 +39,15 @@ case "$OUT" in
     exit 1
     ;;
 esac
+
+# The guidance must point at task-tools progress tracking (so the sidebar
+# progress bar stays in sync) and name the casper-progress skill.
+case "$OUT" in
+  *"track it with the task tools"*"casper-progress skill"*) ;;
+  *)
+    echo "FAIL: session-start stdout missing progress-tracking guidance"
+    echo "got: [$OUT]"
+    exit 1
+    ;;
+esac
 echo "PASS"

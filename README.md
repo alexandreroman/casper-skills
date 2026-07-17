@@ -16,11 +16,15 @@ required.
 | `SessionEnd` | `status set done` |
 | `PostToolUse` (`TaskCreate`/`TaskUpdate`) | mirrors Claude's task list into `progress set`/`progress clear` |
 
-Five fallback skills let Claude reach for the `casper` CLI itself for
-judgment calls no hook can infer automatically:
+Fallback skills cover the judgment calls no hook can infer automatically —
+either by reaching for the `casper` CLI directly or by nudging Claude into
+behaviour the hooks then pick up:
 
 - `casper-status` — call `casper status set blocked` / `casper status set
   error` for agent states no hook can detect.
+- `casper-progress` — track a multi-step, non-immediate activity with the
+  task tools (`TaskCreate` / `TaskUpdate`) so the `PostToolUse` hook keeps the
+  sidebar progress bar in sync.
 - `casper-browser` — open a URL in Casper's browser panel when the user
   asks to see something in a browser, or close the panel when asked.
 - `casper-diff` — open Casper's diff view when the user asks to see a diff,
@@ -31,6 +35,9 @@ judgment calls no hook can infer automatically:
   visible or interactive rather than in the background.
 - `casper-workspace` — list workspaces or resolve the current one anytime;
   create or delete a workspace (Git worktree) only on explicit request.
+- `casper-config` — generate or update a repo's `.casper.json` (the files
+  copied into new workspaces and the named `workspace.scripts`, including the
+  reserved setup/teardown hooks); authoring works in any Git repo.
 
 Every hook is a no-op outside a Casper terminal — it checks for
 `$CASPER_WORKSPACE_ID` before doing anything, and never blocks or fails a

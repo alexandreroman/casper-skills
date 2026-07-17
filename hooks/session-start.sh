@@ -16,6 +16,11 @@ Use the Casper notification mechanism:
   casper notify --message "<what you need from me>"
   casper status set blocked   # when you're waiting on me mid-turn
 
+If your work breaks into several distinct steps and isn't over in a single
+action, track it with the task tools (TaskCreate up front, then TaskUpdate to
+in_progress/completed as you go) — this keeps the workspace's sidebar progress
+bar in sync. See the casper-progress skill for when and how.
+
 If `casper` isn't found or a command fails, ignore it and continue — never
 let it interrupt your task.
 EOF
