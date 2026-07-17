@@ -68,16 +68,35 @@ casper terminal new --command <agent-cli>   # e.g. claude, codex, gemini
 ```
 
 To have that instance start on a specific task right away (e.g. "run a
-code review here") instead of opening an empty agent prompt, pass the
-task as the agent CLI's prompt argument. Quote it normally, the way you'd
-type it at a shell prompt — no `printf '%q'` gymnastics needed, since the
-whole `--command` value is a single already-expanded CLI argument that
-gets retyped verbatim into the target shell, which parses the quotes
-itself:
+code review here") instead of opening an empty agent prompt, give it an
+initial prompt. **Write the prompt/context to a temporary file and have
+the agent read it in — do not pass it inline on the command line.** The
+`--command` value is retyped verbatim as literal keystrokes into the
+target shell, so any non-trivial context (multi-line, quotes, backticks,
+`$`, long text) is fragile that way; a temp file sidesteps all of it and
+keeps the launch command short.
+
+Put the file **outside any repository** — use `mktemp` under the system
+temp dir — so it can never be staged or committed. Never place it inside
+the workspace/worktree, and never commit it. Prefer **Markdown** for the
+file (give it a `.md` extension) so the context stays well-structured and
+readable. Write the full context to the file, then give the agent a **very
+short** inline prompt that just tells it to read that file — do **not**
+`cat` the file into the prompt:
 
 ```bash
-casper terminal new --command '<agent-cli> "Review the diff in this workspace for bugs."'   # e.g. claude "…"
+prompt_file="$(mktemp /tmp/casper-agent-prompt.XXXXXX.md)"
+cat > "$prompt_file" <<'EOF'
+Review the diff in this workspace for bugs.
+<...the full, self-contained context goes here...>
+EOF
+casper terminal new --command "<agent-cli> \"Read the instructions in $prompt_file and follow them.\""   # e.g. claude "Read the instructions in /tmp/… and follow them."
 ```
+
+The `$prompt_file` path is expanded in your shell, so the launched agent
+receives a short instruction naming the file and reads the real context in
+itself. The file must still exist when that instance starts; it lives in
+the temp dir, stays out of version control, and the OS reclaims it later.
 
 ## Listing and closing
 

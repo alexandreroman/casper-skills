@@ -87,16 +87,37 @@ casper workspace new <name> --command <agent-cli>   # e.g. claude, codex, gemini
 
 To have the new instance start on a specific task right away (e.g. "run a
 code review in a new workspace") rather than opening an empty agent
-prompt, pass the task as the agent CLI's prompt argument. Quote it
-normally, the way you'd type it at a shell prompt — no `printf '%q'`
-gymnastics needed, since the whole `--command` value is a single
-already-expanded CLI argument that gets retyped verbatim into the target
-shell, which parses the quotes itself:
+prompt, give it an initial prompt. **Write the prompt/context to a
+temporary file and have the agent read it in — do not pass it inline on
+the command line.** The `--command` value is retyped verbatim as literal
+keystrokes into the target shell, so any non-trivial context (multi-line,
+quotes, backticks, `$`, long text) is fragile that way; a temp file
+sidesteps all of it and keeps the launch command short. This matters even
+more here, where the prompt is usually a self-contained handoff (see
+below).
+
+Put the file **outside any repository** — use `mktemp` under the system
+temp dir — so it can never be staged or committed. Never place it inside
+the workspace/worktree, and never commit it. Prefer **Markdown** for the
+file (give it a `.md` extension) so the context stays well-structured and
+readable. Write the full context to the file, then give the agent a **very
+short** inline prompt that just tells it to read that file — do **not**
+`cat` the file into the prompt:
 
 ```bash
-casper workspace new <name> --command \
-  '<agent-cli> "Review the diff in this workspace for bugs."'   # e.g. claude "…"
+prompt_file="$(mktemp /tmp/casper-agent-prompt.XXXXXX.md)"
+cat > "$prompt_file" <<'EOF'
+Review the diff in this workspace for bugs.
+<...the full, self-contained context goes here...>
+EOF
+casper workspace new <name> \
+  --command "<agent-cli> \"Read the instructions in $prompt_file and follow them.\""   # e.g. claude "Read the instructions in /tmp/… and follow them."
 ```
+
+The `$prompt_file` path is expanded in your shell, so the launched agent
+receives a short instruction naming the file and reads the real context in
+itself. The file must still exist when that instance starts; it lives in
+the temp dir, stays out of version control, and the OS reclaims it later.
 
 `--command` is a one-shot instruction, not part of the persisted terminal
 state — `casper terminal list` never reports a `"command"` field (for this
@@ -131,9 +152,11 @@ committed ref (`--base`), so your current dirty tree won't be in the new
 worktree.
 
 When you do offload, remember the launched instance starts with a **blank
-context window** — it can't see this conversation. Make the agent's prompt
+context window** — it can't see this conversation. Make the handoff
 self-contained: name the files, the decisions already settled, and the
-constraints it must respect.
+constraints it must respect. Write that context into the temp file (as
+above), not into the inline prompt — the inline prompt stays a short
+"read the instructions in this file and follow them".
 
 Whatever the trigger, only *create the workspace or launch the instance*
 once the user has explicitly agreed — never act on your own judgment
