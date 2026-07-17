@@ -1,5 +1,6 @@
 ---
 name: casper-config
+user-invocable: false
 description: Generate or update a repository's .casper.json — the per-repo file Casper reads to seed new workspaces (copyFiles) and to run named commands (workspace.scripts, including the reserved setup/teardown lifecycle hooks). Use when the user wants to configure Casper for a repo, add a run/test/build command, wire a setup or teardown hook, or control which local files get copied into new worktrees. Authoring works in any Git repo; only the casper run verification step needs a Casper terminal workspace.
 allowed-tools: Read Write Edit Glob Grep AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(git rev-parse --show-toplevel) Bash(git add *) Bash(git commit *) Bash(casper run *)
 ---

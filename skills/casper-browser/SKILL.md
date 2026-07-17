@@ -1,5 +1,6 @@
 ---
 name: casper-browser
+user-invocable: false
 description: Open or close a URL in a Casper workspace's browser panel, and automate that page — screenshot it, read its console errors, inspect its DOM/HTML, evaluate JavaScript, click/type/press keys, and wait for conditions. Use when the user asks to see or open a URL (including a local dev server, preview, or running build), and when you (a coding agent) need to verify a frontend change end-to-end: check for console errors, capture a screenshot, or drive the running app. Only useful inside a Casper terminal workspace.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper browser *)
 ---

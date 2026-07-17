@@ -1,5 +1,6 @@
 ---
 name: casper-progress
+user-invocable: false
 description: Track a non-immediate, multi-step activity with the task tools so a Casper workspace's sidebar progress bar reflects it. Use whenever you are about to start work that breaks into several distinct steps and is not over in a single action.
 allowed-tools: TaskCreate, TaskUpdate
 ---
