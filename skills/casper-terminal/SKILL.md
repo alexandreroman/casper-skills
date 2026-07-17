@@ -80,9 +80,10 @@ Put the file **outside any repository** — use `mktemp` under the system
 temp dir — so it can never be staged or committed. Never place it inside
 the workspace/worktree, and never commit it. Prefer **Markdown** for the
 file (give it a `.md` extension) so the context stays well-structured and
-readable. Write the full context to the file, then give the agent a **very
-short** inline prompt that just tells it to read that file — do **not**
-`cat` the file into the prompt:
+readable. Write the file's instructions in **English**, regardless of the
+language of this conversation. Write the full context to the file, then
+give the agent a **very short** inline prompt that just tells it to read
+that file — do **not** `cat` the file into the prompt:
 
 ```bash
 # mktemp only substitutes trailing Xs (BSD/macOS), so add the .md after.
