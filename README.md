@@ -36,6 +36,9 @@ behaviour the hooks then pick up:
   visible or interactive rather than in the background.
 - `casper-workspace` — list workspaces or resolve the current one anytime;
   create or delete a workspace (Git worktree) only on explicit request.
+- `casper-handoff` — hand off the current in-progress session to a fresh
+  workspace so a new agent instance continues this session's work with no
+  loss of information (WIP commit + a self-contained handoff document).
 - `casper-config` — generate or update a repo's `.casper.json` (the files
   copied into new workspaces and the named `workspace.scripts`, including the
   reserved setup/teardown hooks); authoring works in any Git repo.
