@@ -1,7 +1,7 @@
 ---
 name: casper-browser
 user-invocable: false
-description: Open or close a URL in a Casper workspace's browser panel, and automate that page — screenshot it, read its console errors, inspect its DOM/HTML, evaluate JavaScript, click/type/press keys, and wait for conditions. Use when the user asks to see or open a URL (including a local dev server, preview, or running build), and when you (a coding agent) need to verify a frontend change end-to-end: check for console errors, capture a screenshot, or drive the running app. Only useful inside a Casper terminal workspace.
+description: Open or close a URL in a Casper workspace's browser panel, and automate that page — screenshot it, read its console errors, inspect its DOM/HTML, read its current URL, evaluate JavaScript, click/type/press keys, and wait for conditions. Use when the user asks to see or open a URL (including a local dev server, preview, or running build), and when you (a coding agent) need to verify a frontend change end-to-end: check for console errors, capture a screenshot, confirm a navigation or redirect landed, or drive the running app. Only useful inside a Casper terminal workspace.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper browser *)
 ---
 
@@ -55,6 +55,7 @@ real browser before declaring them done.
 | `casper browser console [--level <debug\|log\|info\|warn\|error>] [--clear]` | Read captured console output **and uncaught errors** — your primary "did it break?" signal. |
 | `casper browser screenshot [--out <path>] [--url <url>] [--width <w>] [--height <h>]` | Save a PNG. Plain, it captures the visible browser panel. But as soon as you pass `--width`, `--height`, or `--url`, the capture happens **off-screen** — it renders at that viewport in a headless page without touching the user's visible panel, so responsive breakpoints render faithfully. |
 | `casper browser content [--selector <sel>] [--raw]` | Print the page's HTML (whole document or one selector) to inspect rendered markup. |
+| `casper browser url [--raw]` | Print the page's current URL — confirm a navigation, redirect, or client-side route landed where you expected. |
 | `casper browser eval <script> [--raw]` | Evaluate JavaScript and read a value back (assert state, read a store, probe globals). |
 | `casper browser click <selector>` | Click the first matching element. |
 | `casper browser type <selector> <text>` | Type text into the first matching element. |
@@ -62,10 +63,11 @@ real browser before declaring them done.
 | `casper browser scroll-down`, `casper browser scroll-up` | Scroll the page down/up by one viewport — reveal content below the fold or step back up. |
 | `casper browser scroll-bottom`, `casper browser scroll-top` | Jump straight to the bottom/top of the page (e.g. trigger infinite-scroll loading, or return to the header). |
 
-Most commands print a JSON object (e.g. `{"result":…,"workspace":…}` or
-`{"console":[…]}`); `eval` and `content` accept `--raw` to print just the
-value or HTML. `wait` returns an `{"error":…}` object on timeout — treat
-that as the condition not holding, not as a crash.
+Most commands print a JSON object (e.g. `{"result":…,"workspace":…}`,
+`{"console":[…]}`, or `{"url":…,"workspace":…}`); `eval`, `content`, and
+`url` accept `--raw` to print just the value, HTML, or bare URL. `wait`
+returns an `{"error":…}` object on timeout — treat that as the condition not
+holding, not as a crash.
 
 A typical verify loop after editing frontend code:
 
