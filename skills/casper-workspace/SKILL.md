@@ -55,6 +55,12 @@ command to run immediately in the new workspace's terminal. **If omitted,
 the new workspace's terminal stays an empty shell — nothing runs in it
 automatically.**
 
+Running several workspaces that each bind **host ports** (dev server,
+database, `docker compose` published ports)? They will collide unless the
+repo derives its ports off **`CASPER_PORT`**, the collision-free base Casper
+injects per workspace (a reserved band of 10, `CASPER_PORT`..`CASPER_PORT+10`).
+See the casper-config skill's "Port remapping in parallel workspaces" section.
+
 ### Default to launching a new agent instance there
 
 If the request implies work should actually happen in the new

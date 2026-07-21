@@ -76,6 +76,74 @@ Only add `copyFiles` to **broaden** past the defaults (e.g. `.env.*`,
 `config/*.local.json`). Never copy build artifacts, `node_modules`, or large
 directories.
 
+## Port remapping in parallel workspaces
+
+Casper users routinely run **several workspaces at once**, each a separate Git
+worktree on the same machine. Any project that binds **host ports** — a dev
+server, a database, `docker compose` published ports, a metrics or preview
+endpoint — will otherwise have those workspaces collide: the second `run` dies
+with "address already in use", or two workspaces silently share one backend.
+
+Casper handles the base case. It injects **`CASPER_PORT`** into every
+workspace's environment (available in `setup`, `run`, and every named script),
+unique per workspace, and **pre-reserves a band of 10 ports** — `CASPER_PORT`
+through `CASPER_PORT + 10` — so a workspace can spread its services across that
+range without ever colliding with another workspace.
+
+### The pattern
+
+1. **Derive every port from the base by a fixed offset** — never hard-code.
+   Service *N* listens on `CASPER_PORT + N`. Keep all offsets within `+0..+10`
+   (the reserved band); a project needing more than 11 distinct host ports has
+   outgrown it and needs a different strategy.
+2. **Remap only genuinely *published* ports.** Ports reachable only inside a
+   container network (Docker `expose:`, not `ports:`) never collide across
+   workspaces — leave them alone. Only the host-published ones need remapping.
+3. **Do the remap in the `setup` hook**, guarded so it's a no-op outside
+   Casper (`CASPER_PORT` unset in a plain checkout):
+
+   ```bash
+   [ -n "$CASPER_PORT" ] && <write the remap>
+   ```
+
+4. **Make `run` read or inherit the remapped ports** so the app binds exactly
+   what the remap declared. Don't recompute the ports independently in two
+   places — treat the file the hook wrote as the single source of truth.
+
+### Example (docker compose)
+
+Have `setup` write a `compose.override.yaml` (Compose auto-merges it) that
+remaps only the published ports off `CASPER_PORT`, using `!override` to replace
+each service's ports list:
+
+```yaml
+services:
+  gateway:
+    ports: !override
+      - "${CASPER_PORT}:8080"          # host CASPER_PORT+0 → container 8080
+  db:
+    ports: !override
+      - "$((CASPER_PORT + 1)):5432"    # host CASPER_PORT+1 → container 5432
+```
+
+This is *illustrative*, not a template to emit verbatim — adapt the services,
+offsets, and the write-it-from-`setup` mechanics to the project's stack.
+
+### Gotchas
+
+- **The `run` process must inherit the remapped ports.** Launching a service by
+  hand, bypassing the hook/env that carries the remapped values, falls back to
+  the default port and fails to connect.
+- **Remap internal callback URLs too.** If a service embeds a hard-coded URL
+  pointing at another service's *original* host port (e.g. a UI callback or
+  codec endpoint), the remap must rewrite that URL to the new port, or the
+  feature breaks inside a worktree.
+- **Free leftover ports after a crash.** A killed process can keep its port
+  bound; a relaunch then fails until the holder is freed.
+- **No auto-heal.** Don't try to regenerate the remap when it's missing (e.g. a
+  worktree made with a plain `git worktree add`, where `setup` never ran). Rely
+  on the `setup` hook and keep it minimal.
+
 ## Where the file goes, and why it must be committed
 
 Always write to the **repo root**:
@@ -104,6 +172,12 @@ shares the same config.)
    find to `setup` (install/deps), `run` (the dev/serve command — this becomes
    the default `casper run`), `test`, `build`, and `teardown` (only when there's
    something to tear down, e.g. a `docker-compose.yml`).
+   - **If the repo publishes host ports** (a `docker-compose.yml` with `ports:`,
+     a dev server on a fixed port), also **propose** folding a
+     `CASPER_PORT`-based remap into the `setup` hook so parallel workspaces
+     don't collide — see [Port remapping in parallel workspaces](#port-remapping-in-parallel-workspaces).
+     Suggest it and confirm with the user; don't silently generate a bespoke
+     remap.
 4. **Propose `copyFiles` only when the repo needs more than the defaults.**
    Skim `.gitignore` for local runtime files (`.env*`, `*.local`, …). If the
    defaults (`.env`, `.env.local`) already cover it, leave the key out.
