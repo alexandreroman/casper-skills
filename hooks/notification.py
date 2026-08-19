@@ -13,10 +13,9 @@ FRIENDLY = {
 # silent by design: Casper's detection engine covers ordinary idle/turn-end
 # events on its own, so notifying here would just duplicate it.
 #
-# agent_needs_input was considered — it plausibly also means "needs the user" —
-# but is deliberately excluded for now: it's a newer, less-understood signal,
-# not confirmed to fire for a plain Claude Code CLI session inside a Casper
-# terminal.
+# agent_needs_input is deliberately excluded, even though it plausibly also
+# means "needs the user": it is not confirmed to fire for a plain Claude Code
+# CLI session inside a Casper terminal, so acting on it would be guesswork.
 BLOCKING_TYPES = {"permission_prompt", "elicitation_dialog"}
 
 def main():
