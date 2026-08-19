@@ -27,6 +27,12 @@ casper status set error
 casper notify --message "..."
 ```
 
+`casper notify` is an attention flag — keep its message to the one thing you
+need. If the detail behind it is worth keeping in view (what failed, what you
+tried, what's left), publish that in the workspace's info panel as well — see
+the `casper-info` skill. Report it in the conversation too: the panel is
+in-memory only and is lost if Casper restarts.
+
 This only works inside a terminal Casper opened — if the command fails or
 `casper` isn't found, ignore the failure and continue; never let it interrupt
 your actual task.

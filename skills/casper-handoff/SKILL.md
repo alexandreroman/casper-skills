@@ -2,7 +2,7 @@
 name: casper-handoff
 description: Hand off the current in-progress session to a fresh Casper workspace so another coding-agent instance can continue THIS session's work or reasoning with no loss of information. Use when the user wants to pass the baton — "passe la main à un nouveau workspace", "continue this in a fresh space", "hand off / prolonger le travail ailleurs", "reprends ça dans un nouveau workspace", or when the context window is filling up and the work should carry on cleanly elsewhere. Distinct from offloading a separate/tangential topic (that is casper-workspace). Only useful inside a Casper terminal workspace.
 user-invocable: false
-allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace current) Bash(casper workspace list) Bash(casper workspace new *) Bash(casper notify *) Bash(git status --porcelain*) Bash(git rev-parse *) Bash(git branch*) Bash(git add *) Bash(git commit *) Bash(git log *) Bash(mktemp *) Bash(mv *)
+allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace current) Bash(casper workspace list) Bash(casper workspace new *) Bash(casper notify *) Bash(casper info set *) Bash(git status --porcelain*) Bash(git rev-parse *) Bash(git branch*) Bash(git add *) Bash(git commit *) Bash(git log *) Bash(mktemp *) Bash(mv *)
 ---
 
 # Casper session handoff
@@ -144,6 +144,14 @@ casper workspace new <name> \
   --command "<agent-cli> \"Read the handoff in $prompt_file and continue the work.\""
 ```
 
+This prints the created workspace on one line:
+
+```json
+{"workspace":"<new-id>","name":"...","branch":"...","path":"..."}
+```
+
+Keep that `workspace` id — Step 4 reports it and can target it.
+
 Substitute the CLI you're actually running (`claude`, `codex`, `gemini`,
 …); if the user named one, use that. Pick a descriptive `<name>` for the
 new workspace, or ask the user if it's unclear.
@@ -153,6 +161,28 @@ new workspace, or ask the user if it's unclear.
 Tell the user which workspace/branch the work continued in (id and path
 from the `casper workspace new` output) so they can switch to it. If they
 need to act on it, you may also `casper notify --message "..."`.
+
+You can also leave that summary in the new workspace's info panel, so the
+user finds it when they switch there. Target the workspace by the
+`workspace` id printed by `casper workspace new` in Step 3, and write the
+note to its own temp file — it is *not* the handoff document, which stays
+agent-facing and in English:
+
+```bash
+note_file="$(mktemp /tmp/casper-handoff-note.XXXXXX)" && mv "$note_file" "$note_file.md" && note_file="$note_file.md"
+cat > "$note_file" <<'EOF'
+# <title naming what was handed off>
+
+<...a short, user-facing summary: what was handed off, where it stands,
+and what happens next — written in this conversation's language...>
+EOF
+casper info set --workspace <new-id> --file "$note_file"
+```
+
+See the `casper-info` skill for how that panel behaves. It is a
+convenience only: the message is in-memory and lost if Casper restarts, so
+it never replaces the handoff file or the WIP commit as the thing that
+actually carries the work.
 
 ## Common mistakes
 

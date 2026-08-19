@@ -30,6 +30,10 @@ behaviour the hooks then pick up:
   asks to see something in a browser, or close the panel when asked.
 - `casper-diff` — open Casper's diff view when the user asks to see a diff,
   in full or for one file, or close it when asked.
+- `casper-info` — publish, replace, or clear the workspace's info panel: one
+  Markdown message per workspace, for a plan, a summary, findings, or the
+  handles of something left running. In-memory only — it displays
+  information, it never stores it.
 - `casper-terminal` — open, list, and close terminals in the workspace,
   always when the user explicitly asks to run something in a terminal, and
   also on Claude's own judgment when a command should run somewhere
