@@ -31,6 +31,11 @@ written to Casper's session state, so it is gone when Casper quits or
 restarts — and it comes back empty, with its button hidden, as if nothing
 had been published.
 
+The plugin wipes it as well whenever a **new** Claude conversation starts
+(`SessionStart` with a `startup` or `clear` source; resuming or compacting
+an existing session keeps it) — a message published by a previous session
+describes work the new one knows nothing about.
+
 That makes the panel a **display surface, not a record**. The rule that
 follows from it:
 

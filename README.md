@@ -9,7 +9,7 @@ required.
 
 | Hook | Casper action |
 |---|---|
-| `SessionStart` | `status set idle` + `progress clear` |
+| `SessionStart` | `status set idle` + `progress clear`, plus `info clear` when the conversation is a new one (skipped for `resume`/`compact`, which continue an existing session) |
 | `UserPromptSubmit` | `status set working` |
 | `PreToolUse` | `status set working` (keeps the explicit-authority latch held for every tool call in a turn, so `Stop` can safely report `done`) |
 | `Stop` | `status set done` (every hook-driven workspace is permanently under Casper's explicit-authority latch, so its own detection engine can never derive "done" here — Casper collapses it back to `idle` once the workspace is selected) |

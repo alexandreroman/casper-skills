@@ -2,6 +2,16 @@
 casper status set idle >/dev/null 2>&1 || true
 casper progress clear >/dev/null 2>&1 || true
 
+# A fresh conversation starts with an empty info panel: whatever the previous
+# session published there describes work this session knows nothing about.
+# `resume` and `compact` continue an existing session, so they keep it.
+hook_input="$(cat)"
+hook_source="$(printf '%s' "$hook_input" | sed -n 's/.*"source"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+case "$hook_source" in
+  resume | compact) ;;
+  *) casper info clear >/dev/null 2>&1 || true ;;
+esac
+
 # Inject guidance into the session context (SessionStart stdout is added to
 # Claude's context). This hook only runs inside a Casper workspace, so Casper
 # is guaranteed available here.

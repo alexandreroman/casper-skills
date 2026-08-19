@@ -13,14 +13,14 @@ chmod +x "$STUB_DIR/casper"
 GUARDED_CMD="[ -n \"\$CASPER_WORKSPACE_ID\" ] && ${DIR}/hooks/session-start.sh || true"
 
 # Case 1: no CASPER_WORKSPACE_ID -> must not call casper
-env -u CASPER_WORKSPACE_ID PATH="$STUB_DIR:$PATH" CASPER_LOG="$LOG" bash -c "$GUARDED_CMD"
+env -u CASPER_WORKSPACE_ID PATH="$STUB_DIR:$PATH" CASPER_LOG="$LOG" bash -c "$GUARDED_CMD" </dev/null
 if [ -s "$LOG" ]; then
   echo "FAIL: casper was called without CASPER_WORKSPACE_ID set"
   exit 1
 fi
 
 # Case 2: CASPER_WORKSPACE_ID set -> must call casper
-CASPER_WORKSPACE_ID=test-ws PATH="$STUB_DIR:$PATH" CASPER_LOG="$LOG" bash -c "$GUARDED_CMD"
+CASPER_WORKSPACE_ID=test-ws PATH="$STUB_DIR:$PATH" CASPER_LOG="$LOG" bash -c "$GUARDED_CMD" </dev/null
 if [ ! -s "$LOG" ]; then
   echo "FAIL: casper was not called with CASPER_WORKSPACE_ID set"
   exit 1

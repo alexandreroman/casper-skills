@@ -10,14 +10,39 @@ printf -- '---\n' >> "$CASPER_LOG"
 EOF
 chmod +x "$STUB_DIR/casper"
 
-OUT="$(PATH="$STUB_DIR:$PATH" CASPER_LOG="$LOG" "$DIR/hooks/session-start.sh")"
+run_hook() { # run_hook <hook-json> -> stdout, appends to $LOG
+  printf '%s' "$1" | PATH="$STUB_DIR:$PATH" CASPER_LOG="$LOG" "$DIR/hooks/session-start.sh"
+}
 
-expected=$'status\nset\nidle\n---\nprogress\nclear\n---'
+# A new conversation resets the workspace state, info panel included.
+OUT="$(run_hook '{"session_id":"abc","source":"startup"}')"
+
+expected=$'status\nset\nidle\n---\nprogress\nclear\n---\ninfo\nclear\n---'
 actual="$(cat "$LOG")"
 if [ "$actual" != "$expected" ]; then
   echo "FAIL: expected [$expected], got [$actual]"
   exit 1
 fi
+
+# /clear starts a fresh conversation too -> the panel is cleared.
+: > "$LOG"
+run_hook '{"source":"clear"}' >/dev/null
+if ! grep -q '^info$' "$LOG"; then
+  echo "FAIL: source=clear did not clear the info panel"
+  echo "got: [$(cat "$LOG")]"
+  exit 1
+fi
+
+# resume and compact continue an existing session -> the panel is kept.
+for src in resume compact; do
+  : > "$LOG"
+  run_hook "{\"source\":\"$src\"}" >/dev/null
+  if grep -q '^info$' "$LOG"; then
+    echo "FAIL: source=$src cleared the info panel"
+    echo "got: [$(cat "$LOG")]"
+    exit 1
+  fi
+done
 
 # The hook must inject intervention guidance into the session context (stdout).
 case "$OUT" in
