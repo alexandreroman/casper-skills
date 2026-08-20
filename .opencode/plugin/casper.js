@@ -19,11 +19,17 @@
  * wrong session.
  */
 import { spawn } from "node:child_process"
+import { fileURLToPath } from "node:url"
 
 // Regex-stable on purpose: the Casper app probes the installed plugin file for
 // this exact line to decide whether the integration is current. Keep it on one
 // line, double-quoted, and in sync with package.json (a test asserts this).
 export const CASPER_PLUGIN_VERSION = "0.2.0"
+
+// Resolved against this module's own URL, not process.cwd(), so it works
+// regardless of the process's working directory and of where opencode
+// installed the plugin.
+const GUIDANCE_PATH = fileURLToPath(new URL("./guidance.md", import.meta.url))
 
 const BLOCKED_EVENTS = new Set(["permission.asked", "permission.updated"])
 
@@ -97,6 +103,18 @@ export function createHandlers({ client }) {
   }
 
   return {
+    async config(cfg) {
+      // Point opencode at the guidance file this plugin ships. Nothing is
+      // written: the file already exists inside the plugin's own directory,
+      // and the array is mutated in memory only.
+      if (!inWorkspace()) return
+      try {
+        cfg.instructions = [...(cfg.instructions ?? []), GUIDANCE_PATH]
+      } catch {
+        // Never let a malformed cfg object throw into opencode.
+      }
+    },
+
     async event({ event }) {
       const type = event?.type
       const props = event?.properties ?? {}

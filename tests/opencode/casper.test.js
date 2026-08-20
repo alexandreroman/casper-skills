@@ -151,6 +151,40 @@ describe("opencode plugin", () => {
   })
 })
 
+describe("guidance injection", () => {
+  test("config hook adds the guidance file as an absolute path", async () => {
+    const h = await build()
+    assert.ok(h.config, "config hook is missing")
+    const cfg = {}
+    await h.config(cfg)
+    assert.ok(cfg.instructions.some((p) => p.endsWith("guidance.md")),
+      "config hook did not add the guidance file")
+    assert.ok(cfg.instructions.every((p) => p.startsWith("/")),
+      "instructions entry must be an absolute path")
+  })
+
+  test("existing instructions are preserved", async () => {
+    const h = await build()
+    assert.ok(h.config, "config hook is missing")
+    const cfg = { instructions: ["/existing.md"] }
+    await h.config(cfg)
+    assert.ok(cfg.instructions.includes("/existing.md"))
+  })
+
+  test("outside a Casper workspace the config hook is a no-op", async () => {
+    delete process.env.CASPER_WORKSPACE_ID
+    try {
+      const h = await build()
+      assert.ok(h.config, "config hook is missing")
+      const cfg = {}
+      await h.config(cfg)
+      assert.deepEqual(cfg, {})
+    } finally {
+      process.env.CASPER_WORKSPACE_ID = "test-ws"
+    }
+  })
+})
+
 describe("progress mirror", () => {
   test("empty list clears", () => {
     assert.deepEqual(progressActions([]), [["progress", "clear"]])
