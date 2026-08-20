@@ -5,7 +5,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 casper_stub_init
 
-GUARDED_CMD="[ -n \"\$CASPER_WORKSPACE_ID\" ] && ${DIR}/hooks/session-start.sh || true"
+GUARDED_CMD="[ -n \"\$CASPER_WORKSPACE_ID\" ] && ${DIR}/hooks/session-start.py || true"
 
 # Case 1: no CASPER_WORKSPACE_ID -> must not call casper
 env -u CASPER_WORKSPACE_ID bash -c "$GUARDED_CMD" </dev/null

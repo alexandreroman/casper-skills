@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py\" || true",
             "timeout": 3
           }
         ]
