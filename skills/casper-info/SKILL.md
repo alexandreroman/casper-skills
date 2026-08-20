@@ -1,6 +1,5 @@
 ---
 name: casper-info
-user-invocable: false
 description: Publish, replace, or clear a Markdown information message in a Casper workspace's info panel — the re-readable surface for a plan, a summary of what changed, review findings, test results, the URL/credentials of a running app, or next steps. The message is in-memory only and does not survive a Casper restart, so it displays information, it never stores it. Use when the user asks for something to be shown or kept in the info panel, and on your own judgment when a result deserves to outlive the terminal scrollback. Only useful inside a Casper terminal workspace.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper info set *) Bash(casper info clear) Bash(casper info clear *) Bash(mktemp *) Bash(mv *)
 ---
@@ -31,10 +30,9 @@ written to Casper's session state, so it is gone when Casper quits or
 restarts — and it comes back empty, with its button hidden, as if nothing
 had been published.
 
-The plugin wipes it as well whenever a **new** Claude conversation starts
-(`SessionStart` with a `startup` or `clear` source; resuming or compacting
-an existing session keeps it) — a message published by a previous session
-describes work the new one knows nothing about.
+The plugin wipes it as well whenever a **new** conversation starts (resuming or
+compacting an existing session keeps it) — a message published by a previous
+session describes work the new one knows nothing about.
 
 That makes the panel a **display surface, not a record**. The rule that
 follows from it:

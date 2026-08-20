@@ -1,6 +1,5 @@
 ---
 name: casper-browser
-user-invocable: false
 description: Open or close a URL in a Casper workspace's browser panel, and automate that page — screenshot it, read its console errors, inspect its DOM/HTML, read its current URL, evaluate JavaScript, click/type/press keys, and wait for conditions. Use when the user asks to see or open a URL (including a local dev server, preview, or running build), and when you (a coding agent) need to verify a frontend change end-to-end: check for console errors, capture a screenshot, confirm a navigation or redirect landed, or drive the running app. Only useful inside a Casper terminal workspace.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper browser *)
 ---
@@ -78,8 +77,9 @@ casper browser console --level warn              # any warnings/errors?
 casper browser screenshot --out /tmp/after.png   # eyeball the render
 ```
 
-You can then read the screenshot back with the Read tool, and drive
-interactions (`click`/`type`/`key` → `wait` → `console`) to exercise a flow.
+You can then read the screenshot back with whatever file-reading tool you have,
+and drive interactions (`click`/`type`/`key` → `wait` → `console`) to exercise
+a flow.
 
 ## Guard rule
 

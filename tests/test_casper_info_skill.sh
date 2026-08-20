@@ -8,7 +8,6 @@ fail() { echo "FAIL: $1"; exit 1; }
 [ -f "$FILE" ] || fail "missing $FILE"
 grep -q "^name: casper-info" "$FILE" || fail "missing name in frontmatter"
 grep -q "^description:" "$FILE" || fail "missing description in frontmatter"
-grep -q "^user-invocable: false" "$FILE" || fail "skill must be model-only"
 grep -q "CASPER_WORKSPACE_ID\|Casper terminal" "$FILE" || fail "missing guard-rule mention"
 grep -q "casper info set --message" "$FILE" || fail "missing casper info set --message example"
 grep -q "casper info set --file" "$FILE" || fail "missing casper info set --file example"

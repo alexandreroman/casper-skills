@@ -1,6 +1,5 @@
 ---
 name: casper-terminal
-user-invocable: false
 description: Open, list, and close terminals in a Casper workspace — always when the user explicitly asks to run or launch something in a terminal, and also on your own judgment when a command should run somewhere the user can see or interact with it (a dev server, a watch/tail command). Only useful inside a Casper terminal workspace.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper terminal new) Bash(casper terminal new *) Bash(casper terminal list) Bash(casper terminal list *) Bash(casper terminal close *)
 ---
@@ -26,10 +25,9 @@ terminal` CLI to open, list, and close extra terminals.
   `watch`/tail command, an interactive process — anything long-running
   that's naturally visible or interactive. The trigger here is
   **visibility**, not avoiding a blocking call — do **not** open one as a
-  silent substitute for the Bash tool's own background execution
-  (`run_in_background: true`). A long build or test run the user has no
-  reason to watch directly stays a normal (optionally backgrounded) Bash
-  call.
+  silent substitute for running the command in the background yourself. A
+  long build or test run the user has no reason to watch directly stays a
+  normal (optionally backgrounded) Bash call.
 
 ```bash
 casper terminal new --command "npm run dev"
