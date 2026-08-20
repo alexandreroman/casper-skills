@@ -8,7 +8,8 @@ casper_stub_init() {
   export CASPER_LOG
   cat > "$STUB_DIR/casper" <<'STUB'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$CASPER_LOG"
+printf '%s\t' "$@" >> "$CASPER_LOG"
+printf '\n' >> "$CASPER_LOG"
 STUB
   chmod +x "$STUB_DIR/casper"
   export PATH="$STUB_DIR:$PATH"
@@ -19,7 +20,7 @@ casper_calls() { cat "$CASPER_LOG"; }
 
 assert_casper_calls() {
   local expected="$1" actual
-  actual="$(cat "$CASPER_LOG")"
+  actual="$(tr '\t' ' ' < "$CASPER_LOG" | sed 's/ *$//')"
   if [ "$actual" != "$expected" ]; then
     echo "FAIL: casper calls mismatch"
     echo "--- expected ---"; printf '%s\n' "$expected"

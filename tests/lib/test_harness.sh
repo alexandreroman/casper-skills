@@ -7,4 +7,9 @@ casper_stub_init
 casper status set working
 casper progress clear
 assert_casper_calls $'status set working\nprogress clear'
+
+casper_stub_init
+casper notify --message "run the test suite"
+assert_casper_calls "notify --message run the test suite"
+
 echo "PASS"

@@ -7,5 +7,10 @@ class TestCasperStub(unittest.TestCase):
             subprocess.run(["casper", "status", "set", "blocked"], env=stub.env())
             self.assertEqual(stub.calls, [["status", "set", "blocked"]])
 
+    def test_multi_word_argument_survives(self):
+        with CasperStub() as stub:
+            subprocess.run(["casper", "notify", "--message", "run the test suite"], env=stub.env())
+            self.assertEqual(stub.calls, [["notify", "--message", "run the test suite"]])
+
 if __name__ == "__main__":
     unittest.main()

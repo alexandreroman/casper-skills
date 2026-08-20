@@ -1,7 +1,8 @@
 import os, shutil, tempfile
 
 STUB = """#!/usr/bin/env bash
-printf '%s\\n' "$*" >> "$CASPER_LOG"
+printf '%s\\t' "$@" >> "$CASPER_LOG"
+printf '\\n' >> "$CASPER_LOG"
 """
 
 class CasperStub:
@@ -32,6 +33,10 @@ class CasperStub:
     def calls(self):
         try:
             with open(self.log) as f:
-                return [line.split() for line in f.read().splitlines() if line]
+                return [
+                    line.rstrip("\t").split("\t")
+                    for line in f.read().splitlines()
+                    if line
+                ]
         except FileNotFoundError:
             return []
