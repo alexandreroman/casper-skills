@@ -1,13 +1,22 @@
 """The `casper` CLI boundary, and the one table mapping normalized lifecycle
 events to CLI calls.
 
-EVENT_ACTIONS covers the events whose mapping is a fixed constant. The three
-events whose mapping depends on payload — session-start, blocked,
-tasks-changed — are computed by their own entry points, which still route
-every call through run() so the guards apply uniformly.
+EVENT_ACTIONS covers the four events whose mapping is a fixed constant. The
+three events whose mapping depends on payload — session-start, blocked,
+tasks-changed — are computed by their own entry points (`hooks/session-start.py`,
+`hooks/blocked.py`, `hooks/lib/progress.py::actions_for`, and the opencode
+plugin's own counterparts), which still route every call through run() so the
+guards apply uniformly.
 
-Every agent's tests assert against this table, so a Bash hook, a Python entry
-point, and the opencode plugin can never drift apart silently.
+tests/test_event_conformance.sh and tests/test_cross_agent_conformance.sh pin
+every agent's argv against EVENT_ACTIONS, so those four events cannot drift
+apart silently. The three payload-dependent events are not derived from this
+table, so they get their own dedicated checks instead:
+tests/test_cross_agent_conformance.sh separately compares the session-start
+triple and the blocked pair each entry point hardcodes against the opencode
+plugin's, and the progress mapping against `progress.py::actions_for`. A
+mapping this file does not reach and no test compares is the one place drift
+can still happen silently.
 """
 import os
 import subprocess

@@ -122,7 +122,9 @@ describe("opencode plugin", () => {
 
   test("an unknown event is ignored", async () => {
     const h = await build()
-    await h.event(ev("file.edited", { file: "x" }))
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    calls.length = 0
+    await h.event(ev("file.edited", { sessionID: "root", file: "x" }))
     assert.deepEqual(calls, [])
   })
 
@@ -148,6 +150,70 @@ describe("opencode plugin", () => {
       await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
       assert.deepEqual(calls, [])
     })
+
+    test("a failed lookup is cached and attempted only once per session id", async () => {
+      let listCalls = 0
+      const brokenClient = { session: { list: async () => { listCalls++; throw new Error("boom") } } }
+      const h = await build(brokenClient)
+      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      await h.event(ev("todo.updated", { sessionID: "root", todos: [] }))
+      assert.equal(listCalls, 1)
+    })
+
+    test("a hanging lookup is bounded by a timeout, cached as a child, and does not stall the handler", async () => {
+      let listCalls = 0
+      const hangingClient = { session: { list: () => { listCalls++; return new Promise(() => {}) } } }
+      const h = await build(hangingClient)
+      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      assert.deepEqual(calls, [])
+      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      assert.equal(listCalls, 1)
+    })
+  })
+})
+
+describe("tool.execute.before", () => {
+  test("reasserts working after a permission is approved, so the turn does not stay blocked", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
+    // The permission is replied to (no dedicated handler for that), then
+    // opencode is about to run the now-approved tool.
+    calls.length = 0
+    await h["tool.execute.before"]({ tool: "bash", sessionID: "root", callID: "1" })
+    assert.deepEqual(calls, [["status", "set", "working"]])
+
+    // The busy latch must be true again, so the repeated session.status
+    // "busy" that follows is deduplicated, and turn end fires exactly one
+    // "done" rather than staying stuck or double-reporting.
+    calls.length = 0
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    assert.deepEqual(calls, [])
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, [["status", "set", "done"]])
+  })
+
+  test("on a child session it is ignored", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    calls.length = 0
+    await h["tool.execute.before"]({ tool: "bash", sessionID: "child", callID: "1" })
+    assert.deepEqual(calls, [])
+  })
+
+  test("outside a Casper workspace nothing is emitted", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    calls.length = 0
+    delete process.env.CASPER_WORKSPACE_ID
+    try {
+      await h["tool.execute.before"]({ tool: "bash", sessionID: "root", callID: "1" })
+      assert.deepEqual(calls, [])
+    } finally {
+      process.env.CASPER_WORKSPACE_ID = "test-ws"
+    }
   })
 })
 
@@ -206,6 +272,21 @@ describe("progress mirror", () => {
 
   test("no labelled in-progress task is a no-op", () => {
     assert.equal(progressActions([{ content: "", status: "in_progress" }]), null)
+  })
+
+  test("a missing or non-array todos list is a no-op, not a throw", () => {
+    assert.equal(progressActions(undefined), null)
+    assert.equal(progressActions(null), null)
+    assert.doesNotThrow(() => progressActions("not-an-array"))
+    assert.equal(progressActions("not-an-array"), null)
+  })
+
+  test("todo.updated with a missing todos list leaves the bar untouched", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    calls.length = 0
+    await h.event(ev("todo.updated", { sessionID: "root" }))
+    assert.deepEqual(calls, [])
   })
 
   test("todo.updated on the root session drives the bar", async () => {

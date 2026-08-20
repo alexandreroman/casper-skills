@@ -12,5 +12,10 @@ class TestCasperStub(unittest.TestCase):
             subprocess.run(["casper", "notify", "--message", "run the test suite"], env=stub.env())
             self.assertEqual(stub.calls, [["notify", "--message", "run the test suite"]])
 
+    def test_trailing_empty_argument_survives(self):
+        with CasperStub() as stub:
+            subprocess.run(["casper", "notify", "--message", ""], env=stub.env())
+            self.assertEqual(stub.calls, [["notify", "--message", ""]])
+
 if __name__ == "__main__":
     unittest.main()

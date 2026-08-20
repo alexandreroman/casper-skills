@@ -1,4 +1,4 @@
-import os, sys, unittest
+import os, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, ROOT)
@@ -42,7 +42,6 @@ class TestState(unittest.TestCase):
         self.assertEqual(progress.load("/nonexistent/path.json"), {})
 
     def test_corrupt_file_loads_empty(self):
-        import tempfile
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
             f.write("{not json")
             path = f.name
@@ -52,7 +51,6 @@ class TestState(unittest.TestCase):
             os.unlink(path)
 
     def test_save_then_load_roundtrips(self):
-        import tempfile
         d = tempfile.mkdtemp()
         path = os.path.join(d, "s.json")
         progress.save(path, {"1": {"label": "x", "status": "pending"}})

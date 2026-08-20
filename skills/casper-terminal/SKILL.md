@@ -27,7 +27,7 @@ terminal` CLI to open, list, and close extra terminals.
   **visibility**, not avoiding a blocking call — do **not** open one as a
   silent substitute for running the command in the background yourself. A
   long build or test run the user has no reason to watch directly stays a
-  normal (optionally backgrounded) Bash call.
+  normal (optionally backgrounded) shell command.
 
 ```bash
 casper terminal new --command "npm run dev"
@@ -125,8 +125,8 @@ All three subcommands accept `--workspace <id-or-name>` to target a
 workspace other than the current one — default is `$CASPER_WORKSPACE_ID`.
 
 This only works inside a terminal Casper opened — if the command fails or
-`casper` isn't found, fall back to a normal Bash call and continue; never
-let it interrupt your actual task.
+`casper` isn't found, fall back to a normal shell command and continue;
+never let it interrupt your actual task.
 
 ## Guard rule
 

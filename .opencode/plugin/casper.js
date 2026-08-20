@@ -54,6 +54,8 @@ const inWorkspace = () => Boolean(process.env.CASPER_WORKSPACE_ID)
  * no lock to hold.
  */
 export function progressActions(todos) {
+  if (!Array.isArray(todos)) return null
+
   const total = todos.length
   const completed = todos.filter((t) => t.status === "completed").length
 
@@ -74,20 +76,34 @@ export function createHandlers({ client }) {
 
   const run = (args) => { if (inWorkspace()) runner(args) }
 
+  // A lookup that fails or hangs must not be retried on every later event on
+  // this hot path, so the negative verdict is cached exactly like a real
+  // one, and a hanging client is bounded by a timer that is always cleared
+  // so it cannot keep the process alive.
+  const CHILD_LOOKUP_TIMEOUT_MS = 250
+
   const childCache = new Map()
   const isChild = async (sessionID) => {
     if (!sessionID) return true
     if (childCache.has(sessionID)) return childCache.get(sessionID)
+    let timer
     try {
-      const sessions = await client?.session?.list?.()
+      const timedOut = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("child lookup timed out")), CHILD_LOOKUP_TIMEOUT_MS)
+      })
+      const sessions = await Promise.race([client?.session?.list?.(), timedOut])
       const found = sessions?.data?.find((s) => s.id === sessionID)
       const result = Boolean(found?.parentID)
       childCache.set(sessionID, result)
       return result
     } catch {
-      // On a failed lookup, assume child: a missed update is better than
-      // driving the sidebar from a subagent.
+      // On a failed or hung lookup, assume child and cache that verdict: a
+      // missed update is better than driving the sidebar from a subagent,
+      // and never adopting beats retrying a doomed round-trip forever.
+      childCache.set(sessionID, true)
       return true
+    } finally {
+      clearTimeout(timer)
     }
   }
 
@@ -113,6 +129,20 @@ export function createHandlers({ client }) {
       } catch {
         // Never let a malformed cfg object throw into opencode.
       }
+    },
+
+    // Fires immediately before opencode runs a tool call — including the
+    // one a just-approved permission unblocked. Unconditionally reassert
+    // "working" here, exactly like Claude Code and Codex's PreToolUse hook
+    // does with no dedup of its own: a blocked state has nothing else that
+    // clears it once the user has replied, and setting `busy` true again
+    // (idempotently, if a busy event already set it) keeps the turn-end
+    // path firing exactly one `done`.
+    async "tool.execute.before"(input) {
+      const sessionID = input?.sessionID ?? null
+      if (!(await resolveRoot(sessionID))) return
+      busy = true
+      run(["status", "set", "working"])
     },
 
     async event({ event }) {
@@ -149,7 +179,7 @@ export function createHandlers({ client }) {
       if (!(await resolveRoot(sessionID))) return
 
       if (type === "todo.updated") {
-        for (const args of progressActions(props.todos ?? []) ?? []) run(args)
+        for (const args of progressActions(props.todos) ?? []) run(args)
         return
       }
 

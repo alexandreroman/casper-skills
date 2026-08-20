@@ -11,8 +11,12 @@ class TestManifests(unittest.TestCase):
         self.assertEqual(load(".claude-plugin", "marketplace.json")["name"], "casper-agents")
 
     def test_homepage_points_at_the_renamed_repo(self):
-        for path in ((".claude-plugin", "plugin.json"),):
-            self.assertIn("casper-agents", load(*path)["homepage"])
+        self.assertIn("casper-agents", load(".claude-plugin", "plugin.json")["homepage"])
+        # The marketplace entry's own homepage is the link users actually
+        # click from a marketplace listing, so it is checked independently
+        # of plugin.json's.
+        marketplace = load(".claude-plugin", "marketplace.json")
+        self.assertIn("casper-agents", marketplace["plugins"][0]["homepage"])
 
     def test_versions_agree(self):
         plugin = load(".claude-plugin", "plugin.json")["version"]

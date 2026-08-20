@@ -34,7 +34,7 @@ class CasperStub:
         try:
             with open(self.log) as f:
                 return [
-                    line.rstrip("\t").split("\t")
+                    (line[:-1] if line.endswith("\t") else line).split("\t")
                     for line in f.read().splitlines()
                     if line
                 ]

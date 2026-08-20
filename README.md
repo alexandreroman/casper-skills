@@ -8,9 +8,11 @@ and no changes to the agent's own configuration or the user's project either.
 
 ## What it does
 
-Every Casper surface is available on every supported agent. There is no
-capability gap: the three agents expose the same lifecycle through different
-mechanisms, and this plugin normalizes the difference away.
+Every Casper surface Claude Code and Codex expose is available on opencode
+too: the three agents expose the same lifecycle through different
+mechanisms, and this plugin normalizes the difference away. opencode also
+reports an `error` state neither Claude Code nor Codex has a counterpart
+for, so that row is asymmetric the other way — see below.
 
 | Casper surface | Claude Code | Codex | opencode |
 |---|---|---|---|
@@ -22,6 +24,7 @@ mechanisms, and this plugin normalizes the difference away.
 | blocked / notifications | `Notification` (type allowlist) | `PermissionRequest` | `permission.asked` |
 | progress bar | `PostToolUse` on `TaskCreate`\|`TaskUpdate` | `PostToolUse` on `update_plan` | `todo.updated` |
 | info panel & guidance injection | `SessionStart` stdout | `SessionStart` stdout | in-process `config` hook → `instructions[]` |
+| error state | not supported | not supported | `session.error` → `status set error` |
 
 Each row lands on the same normalized action regardless of which agent fired
 it:

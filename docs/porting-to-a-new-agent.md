@@ -21,14 +21,21 @@ variable, not by guesswork (Codex sets `PLUGIN_ROOT` in addition to
 **In-process plugin agents** (opencode today) load a module into the agent's
 own runtime and subscribe to an event bus directly, with no process boundary
 and no stdin contract. `.opencode/plugin/casper.js` is the existing example:
-it subscribes to opencode's `event` hook, normalizes what it sees, and spawns
-the same Python policy layer detached with the normalized payload on stdin —
-so the policy logic is never duplicated in JavaScript, only the event
-translation is. A new in-process agent should follow the same pattern:
-translate that agent's native events into the normalized vocabulary below,
-then hand off to the existing policy layer (or reimplement the policy table
-faithfully in the new runtime, as `casper.js`'s `progressActions` does for
-task-list mirroring, if spawning a subprocess is not viable there).
+it subscribes to opencode's `event` hook (and lifecycle hooks like
+`tool.execute.before`), normalizes what it sees, and calls the `casper` CLI
+directly, the same way every shell hook does — there is no Python process
+in between, and no stdin contract to look for. The policy mapping is
+reimplemented in JavaScript (`progressActions` mirrors
+`hooks/lib/progress.py::actions_for`; the fixed-mapping and payload-dependent
+cases mirror `hooks/lib/casper.py::EVENT_ACTIONS` and the Python entry
+points computing the other three events), and parity between the two
+runtimes is what `tests/test_cross_agent_conformance.sh` enforces, by
+driving both sides with the same input and comparing recorded argv — not by
+sharing a process or a payload contract. A new in-process agent should
+follow the same pattern: translate that agent's native events into the
+normalized vocabulary below, call the `casper` CLI directly, and add a
+conformance test that pins its own computed mapping against the existing
+implementation's the same way.
 
 ## The normalized event vocabulary
 
@@ -47,14 +54,25 @@ events, or nothing:
 
 **`hooks/lib/casper.py::EVENT_ACTIONS` is the single source of truth** for the
 four events whose mapping is a fixed constant (`turn-start`, `tool-activity`,
-`turn-end`, `session-end`). The other three — `session-start`, `blocked`,
-`tasks-changed` — depend on the event's payload, so their mapping is computed
-by their own entry points, but every call those entry points make still
-routes through `casper.py::run()` so the guards (workspace check, timeout,
-swallowed errors) apply uniformly. Nothing outside this table is allowed to
-independently decide what CLI call a normalized event produces — a new
-agent's entry points read this table (or its computed counterparts), they
-never re-derive the mapping.
+`turn-end`, `session-end`). `tests/test_event_conformance.sh` and
+`tests/test_cross_agent_conformance.sh` pin every agent's argv against this
+table automatically, so those four cannot drift apart silently.
+
+The other three — `session-start`, `blocked`, `tasks-changed` — depend on the
+event's payload, so their mapping is computed independently by each entry
+point (`hooks/session-start.py`, `hooks/blocked.py`,
+`hooks/lib/progress.py::actions_for`, and the opencode plugin's own
+counterparts), though every call those entry points make still routes
+through `casper.py::run()` so the guards (workspace check, timeout, swallowed
+errors) apply uniformly. These three are not read from a shared table, so
+they are not automatically protected by it; `tests/test_cross_agent_conformance.sh`
+covers them by driving each side with matching input and comparing the
+recorded argv directly. A new agent's entry points must either read
+`EVENT_ACTIONS` (or its computed counterparts) rather than re-deriving the
+mapping, or add an equivalent conformance test pinning their own computed
+mapping against the existing implementation's — a mapping neither read from
+the table nor covered by such a test is the one place drift can happen
+silently.
 
 ## Required: a conformance test
 

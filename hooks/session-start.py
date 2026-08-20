@@ -26,13 +26,16 @@ def main() -> None:
     except (json.JSONDecodeError, ValueError):
         payload = {}
 
+    # SessionStart stdout is added to the agent's context. Write it before
+    # any casper call: the hook runs inside a fixed time budget, and a
+    # stalled or slow `casper` call must not cost the session its whole
+    # context injection, which is the more important of the two effects.
+    sys.stdout.write(TEXT)
+
     casper.run(["status", "set", "idle"], timeout=1)
     casper.run(["progress", "clear"], timeout=1)
     if payload.get("source") not in CONTINUING:
         casper.run(["info", "clear"], timeout=1)
-
-    # SessionStart stdout is added to the agent's context.
-    sys.stdout.write(TEXT)
 
 
 if __name__ == "__main__":

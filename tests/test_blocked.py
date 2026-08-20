@@ -36,6 +36,21 @@ class TestClaudeNotification(unittest.TestCase):
                         "notification_type": "something_future"})
             self.assertEqual(stub.calls, [])
 
+    def test_agent_needs_input_stays_silent(self):
+        # Documented policy decision: it plausibly also means "needs the
+        # user", but is not confirmed to fire for a plain CLI session inside
+        # a Casper terminal, so acting on it would be guesswork.
+        with CasperStub() as stub:
+            fire(stub, {"hook_event_name": "Notification",
+                        "notification_type": "agent_needs_input"})
+            self.assertEqual(stub.calls, [])
+
+class TestOtherHookEvents(unittest.TestCase):
+    def test_non_notification_non_permission_event_makes_no_call(self):
+        with CasperStub() as stub:
+            fire(stub, {"hook_event_name": "Stop"})
+            self.assertEqual(stub.calls, [])
+
 class TestCodexPermissionRequest(unittest.TestCase):
     def test_permission_request_needs_no_allowlist(self):
         with CasperStub() as stub:

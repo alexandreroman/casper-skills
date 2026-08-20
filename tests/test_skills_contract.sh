@@ -15,7 +15,7 @@ for skill in "$DIR"/skills/*/; do
   grep -q "^user-invocable:" "$file" && fail "$name: user-invocable is Claude-only"
 
   # Tool names belonging to one agent only.
-  for banned in "TaskCreate" "TaskUpdate" "the Read tool" "run_in_background"; do
+  for banned in "TaskCreate" "TaskUpdate" "the Read tool" "run_in_background" "Bash tool"; do
     grep -q "$banned" "$file" && fail "$name: names a Claude-only tool: $banned"
   done
 

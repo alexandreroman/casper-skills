@@ -95,7 +95,6 @@ class TestRobustness(Base):
             self.assertEqual(stub.calls, [])
 
     def test_unusable_state_dir_does_not_fail_the_turn(self):
-        import tempfile
         # CLAUDE_PLUGIN_DATA pointing at a regular FILE makes makedirs raise.
         with tempfile.NamedTemporaryFile(suffix=".notadir", delete=False) as f:
             bogus = f.name
