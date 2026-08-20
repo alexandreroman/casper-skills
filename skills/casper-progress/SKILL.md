@@ -1,6 +1,6 @@
 ---
 name: casper-progress
-description: Track a non-immediate, multi-step activity with the task tools so a Casper workspace's sidebar progress bar reflects it. Use whenever you are about to start work that breaks into several distinct steps and is not over in a single action.
+description: Track a non-immediate, multi-step activity with your agent's task-tracking tool so a Casper workspace's sidebar progress bar reflects it. Use whenever you are about to start work that breaks into several distinct steps and is not over in a single action.
 ---
 
 # Casper progress (sidebar progress bar)

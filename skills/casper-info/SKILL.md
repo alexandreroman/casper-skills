@@ -86,7 +86,7 @@ fills with noise stops being worth opening.
 | Content to keep in view and re-read | **this skill** — `casper info set` |
 | "I need you *now*" (attention flag) | `casper notify --message "..."` |
 | Agent state (blocked / error) | `casper-status` |
-| Step-by-step advancement of the current work | `casper-progress` (task tools) |
+| Step-by-step advancement of the current work | `casper-progress` (your agent's task-tracking tool) |
 | Something to watch running | `casper-terminal` |
 
 The info panel is silent — it never grabs attention. If the user must act
