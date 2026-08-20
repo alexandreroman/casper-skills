@@ -1,7 +1,6 @@
 ---
 name: casper-handoff
 description: Hand off the current in-progress session to a fresh Casper workspace so another coding-agent instance can continue THIS session's work or reasoning with no loss of information. Use when the user wants to pass the baton — "passe la main à un nouveau workspace", "continue this in a fresh space", "hand off / prolonger le travail ailleurs", "reprends ça dans un nouveau workspace", or when the context window is filling up and the work should carry on cleanly elsewhere. Distinct from offloading a separate/tangential topic (that is casper-workspace). Only useful inside a Casper terminal workspace.
-user-invocable: false
 allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace current) Bash(casper workspace list) Bash(casper workspace new *) Bash(casper notify *) Bash(casper info set *) Bash(git status --porcelain*) Bash(git rev-parse *) Bash(git branch*) Bash(git add *) Bash(git commit *) Bash(git log *) Bash(mktemp *) Bash(mv *)
 ---
 

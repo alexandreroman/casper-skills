@@ -1,6 +1,5 @@
 ---
 name: casper-diff
-user-invocable: false
 description: Open a Casper workspace's diff view, in full or for a particular file, or close it, when the user explicitly asks. Only useful inside a Casper terminal workspace.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper diff open *) Bash(casper diff close)
 ---

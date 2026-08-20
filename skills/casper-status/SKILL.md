@@ -1,6 +1,5 @@
 ---
 name: casper-status
-user-invocable: false
 description: Report a Casper workspace's agent state (blocked or error) when you judge you're in one of those states — no automatic hook covers them.
 allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper status set *) Bash(casper notify *)
 ---

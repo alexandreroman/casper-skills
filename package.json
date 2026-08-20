@@ -1,0 +1,11 @@
+{
+  "name": "casper-agents",
+  "version": "0.2.0",
+  "description": "Casper integration for coding agents.",
+  "type": "module",
+  "main": ".opencode/plugin/casper.js",
+  "license": "Apache-2.0",
+  "author": "Alexandre Roman <alexandre.roman@gmail.com>",
+  "homepage": "https://github.com/alexandreroman/casper-agents",
+  "files": [".opencode", "hooks", "skills", "LICENSE", "README.md"]
+}

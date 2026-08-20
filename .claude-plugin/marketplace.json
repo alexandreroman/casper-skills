@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "Casper",
-  "description": "Marketplace for the Casper Claude Code plugin.",
+  "name": "casper-agents",
+  "description": "Marketplace for the Casper coding-agent integration.",
   "owner": {
     "name": "Alexandre Roman",
     "email": "alexandre.roman@gmail.com"
@@ -10,13 +10,13 @@
     {
       "name": "casper",
       "source": "./",
-      "description": "Casper Claude Code plugin.",
-      "version": "0.1.0",
+      "description": "Casper integration for coding agents.",
+      "version": "0.2.0",
       "author": {
         "name": "Alexandre Roman",
         "email": "alexandre.roman@gmail.com"
       },
-      "homepage": "https://github.com/alexandreroman/casper-claude-plugin",
+      "homepage": "https://github.com/alexandreroman/casper-agents",
       "tags": ["casper", "terminal", "workspace", "hooks"]
     }
   ]

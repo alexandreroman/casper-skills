@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py\" || true",
             "timeout": 3
           }
         ]
@@ -17,6 +17,39 @@
           {
             "type": "command",
             "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-submit.sh\" || true",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.sh\" || true",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "TaskCreate|TaskUpdate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/tasks.py\" || true",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "update_plan",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/tasks.py\" || true",
             "timeout": 3
           }
         ]
@@ -49,30 +82,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/notification.py\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/blocked.py\" || true",
             "timeout": 3
           }
         ]
       }
     ],
-    "PreToolUse": [
+    "PermissionRequest": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.sh\" || true",
-            "timeout": 3
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "TaskCreate|TaskUpdate",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use-tasks.py\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT}/hooks/blocked.py\" || true",
             "timeout": 3
           }
         ]
