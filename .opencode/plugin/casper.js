@@ -40,6 +40,28 @@ let runner = (args) => {
 
 const inWorkspace = () => Boolean(process.env.CASPER_WORKSPACE_ID)
 
+/**
+ * Map an opencode todo list to casper argv.
+ *
+ * Mirrors hooks/lib/progress.py::actions_for. opencode sends the whole list on
+ * every change, so unlike the Claude/Codex path there is no state to keep and
+ * no lock to hold.
+ */
+export function progressActions(todos) {
+  const total = todos.length
+  const completed = todos.filter((t) => t.status === "completed").length
+
+  if (total === 0 || completed === total) return [["progress", "clear"]]
+
+  const current = todos.find((t) => t.status === "in_progress" && t.content)
+  if (!current) return null
+
+  return [["progress", "set",
+           "--total", String(total),
+           "--current", String(completed + 1),
+           "--label", current.content]]
+}
+
 export function createHandlers({ client }) {
   let rootSessionID = null
   let busy = false
@@ -93,13 +115,23 @@ export function createHandlers({ client }) {
         return
       }
 
-      if (!(await resolveRoot(sessionID))) return
-
       if (type === "session.deleted") {
+        // Synchronous check only: a delete must never adopt. If this session
+        // is not already the tracked root, ignore it — including the case
+        // where no root is bound yet, which would otherwise flip the sidebar
+        // to "done" for a session the plugin never tracked.
+        if (rootSessionID === null || sessionID !== rootSessionID) return
         run(["status", "set", "done"])
         childCache.delete(sessionID)
         rootSessionID = null
         busy = false
+        return
+      }
+
+      if (!(await resolveRoot(sessionID))) return
+
+      if (type === "todo.updated") {
+        for (const args of progressActions(props.todos ?? []) ?? []) run(args)
         return
       }
 

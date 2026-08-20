@@ -38,4 +38,19 @@ got_end="$(printf '%s\n' "$actual" | sed -n 2p)"
 [ "$got_end" = "$(expected_for turn-end)" ] || {
   echo "FAIL: turn-end mismatch"; echo "  expected $(expected_for turn-end)"; echo "  got      $got_end"; exit 1; }
 
+# progressActions (JS) must agree with actions_for (Python) on the same input.
+fixture='[{"label":"a","status":"completed"},{"label":"b","status":"in_progress"},{"label":"c","status":"pending"}]'
+py="$(python3 -c "
+import json
+from hooks.lib.progress import actions_for
+print(json.dumps(actions_for(json.loads('$fixture')), separators=(',', ':')))
+")"
+js="$(node --input-type=module -e '
+import { progressActions } from "./.opencode/plugin/casper.js"
+const todos = JSON.parse(process.argv[1]).map(t => ({ content: t.label, status: t.status }))
+console.log(JSON.stringify(progressActions(todos)))
+' "$fixture")"
+[ "$py" = "$js" ] || { echo "FAIL: progress mismatch"; echo "  py $py"; echo "  js $js"; exit 1; }
+echo "  ok: progressActions == actions_for"
+
 echo "PASS"

@@ -1,6 +1,6 @@
 import { test, describe, beforeEach } from "node:test"
 import assert from "node:assert/strict"
-import plugin from "../../.opencode/plugin/casper.js"
+import plugin, { progressActions } from "../../.opencode/plugin/casper.js"
 
 let calls
 const fakeClient = {
@@ -106,6 +106,13 @@ describe("opencode plugin", () => {
     assert.deepEqual(calls, [["status", "set", "done"]])
   })
 
+  test("session.deleted for an untracked session is ignored", async () => {
+    const h = await build()
+    // No session.created has fired, so no root is bound.
+    await h.event(ev("session.deleted", { sessionID: "stranger" }))
+    assert.deepEqual(calls, [])
+  })
+
   test("outside a Casper workspace nothing is emitted", async () => {
     delete process.env.CASPER_WORKSPACE_ID
     const h = await build()
@@ -141,5 +148,50 @@ describe("opencode plugin", () => {
       await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
       assert.deepEqual(calls, [])
     })
+  })
+})
+
+describe("progress mirror", () => {
+  test("empty list clears", () => {
+    assert.deepEqual(progressActions([]), [["progress", "clear"]])
+  })
+
+  test("all completed clears", () => {
+    assert.deepEqual(
+      progressActions([{ content: "a", status: "completed" }]),
+      [["progress", "clear"]])
+  })
+
+  test("reports position and label", () => {
+    assert.deepEqual(progressActions([
+      { content: "a", status: "completed" },
+      { content: "b", status: "in_progress" },
+      { content: "c", status: "pending" },
+    ]), [["progress", "set", "--total", "3", "--current", "2", "--label", "b"]])
+  })
+
+  test("no labelled in-progress task is a no-op", () => {
+    assert.equal(progressActions([{ content: "", status: "in_progress" }]), null)
+  })
+
+  test("todo.updated on the root session drives the bar", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    calls.length = 0
+    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+      { content: "a", status: "completed" },
+      { content: "b", status: "in_progress" },
+    ]}))
+    assert.deepEqual(calls, [
+      ["progress", "set", "--total", "2", "--current", "2", "--label", "b"]])
+  })
+
+  test("todo.updated on a child session is ignored", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    calls.length = 0
+    await h.event(ev("todo.updated", { sessionID: "child", todos: [
+      { content: "b", status: "in_progress" }]}))
+    assert.deepEqual(calls, [])
   })
 })
