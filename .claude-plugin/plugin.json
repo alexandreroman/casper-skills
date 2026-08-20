@@ -1,12 +1,14 @@
 {
   "name": "casper",
-  "version": "0.1.0",
-  "description": "Casper Claude Code plugin.",
+  "version": "0.2.0",
+  "description": "Casper integration for coding agents.",
   "author": {
     "name": "Alexandre Roman",
     "email": "alexandre.roman@gmail.com"
   },
-  "homepage": "https://github.com/alexandreroman/casper-claude-plugin",
+  "homepage": "https://github.com/alexandreroman/casper-agents",
   "license": "Apache-2.0",
-  "keywords": ["casper", "terminal", "workspace", "hooks"]
+  "keywords": ["casper", "terminal", "workspace", "hooks"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
 }
