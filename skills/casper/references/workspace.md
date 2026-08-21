@@ -3,6 +3,28 @@
 Manage Casper workspaces (each one is a Git worktree) with the `casper
 workspace` CLI.
 
+## Read this part even if you read nothing else
+
+Four subcommands exist, and only four: `list`, `current`, `new`, `delete`.
+
+- **There is no `casper workspace close` subcommand**, and no `merge` either.
+  Closing (merging) a workspace is the five-step procedure at the bottom of
+  this file, ending in `delete`. The CLI rejects the guess, but its usage
+  line lists no subcommands at all — only `casper workspace --help` names the
+  four — and says nothing about the procedure, so **don't read that rejection
+  as "`delete` must be what they meant"**: a session did exactly that, went
+  straight to the merge without the rebase, and resolved the resulting
+  conflict on its own instead of stopping.
+- **Both `new` and `delete` take `--workspace <id-or-name>`**, which targets
+  a workspace other than this one (`list` is global and `current` is by
+  definition about `$CASPER_WORKSPACE_ID`, so neither has it). For `new`,
+  that flag also decides *which Space* the new workspace lands in, so
+  creating a workspace in another Space from here is supported. Never
+  conclude a Casper operation is impossible from this workspace without
+  checking that flag first.
+- `new` and `delete` both create or destroy a Git branch, and `delete` cannot
+  be undone. Neither is ever run except on an explicit request.
+
 ## Read-only: use anytime
 
 ```bash
@@ -32,15 +54,21 @@ skills.
 ## Creating a workspace: explicit request only
 
 ```bash
-casper workspace new <name> [--base <ref>] [--command <cmd>]
+casper workspace new <branch> [--base <ref>] [--command <cmd>] [--workspace <id-or-name>]
 ```
 
-creates a new Git worktree workspace on a new branch (a sibling of the
-current workspace's Space), printing:
+creates a new Git worktree workspace on a new branch, printing:
 
 ```json
 {"workspace":"<new-id>","name":"...","branch":"...","path":"..."}
 ```
+
+`--workspace <id-or-name>` decides where the new workspace is created: it
+becomes a sibling of *that* workspace, in *that* workspace's Space. Omitted,
+it defaults to `$CASPER_WORKSPACE_ID`, so the new workspace is a sibling of
+this one. **Creating a workspace in a different Space is therefore a matter
+of naming a workspace in that Space** — resolve one with `casper workspace
+list` and pass it. Nothing about `new` confines it to the current Space.
 
 `--base` defaults to the Space's primary workspace's branch if omitted.
 `--command` is optional — omit it for an empty initial terminal, or pass a
@@ -174,7 +202,8 @@ casper workspace delete [--workspace <id-or-name>]
 deletes a workspace — its worktree folder, its Git branch, and its UI
 entry — **immediately**. There is no confirmation prompt and no
 `--force`/`-y` gate anywhere in the CLI; calling the command is the only
-confirmation there is, and it cannot be undone.
+confirmation there is, and it cannot be undone. `--workspace <id-or-name>`
+targets a workspace other than this one; omitted, it deletes this one.
 
 This is a plain, unconditional delete: it does **not** merge or otherwise
 preserve the branch's commits anywhere first — once the branch and
@@ -288,12 +317,7 @@ Run this from `<origin-path>` (or any workspace other than the one being
 closed) — deleting removes that worktree folder out from under the shell's
 CWD if run from inside it. Only run this after Step 4's merge succeeded.
 
-## Targeting another workspace
-
-`new` and `delete` accept `--workspace <id-or-name>` to target a workspace
-other than the current one — default is `$CASPER_WORKSPACE_ID`. `list` has
-no target (it's global); `current` has no override (it's specifically
-about `$CASPER_WORKSPACE_ID`).
+## When a command fails
 
 If the command fails or `casper` isn't found, tell the user — a workspace
 operation they think happened is worse than one they know did not.

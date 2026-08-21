@@ -1,6 +1,6 @@
 ---
 name: casper
-description: Use whenever the session runs inside a Casper terminal workspace — the CASPER_WORKSPACE_ID environment variable is set — and for any Casper surface the agent can drive from there: reporting a blocked or error state, notifying the user, the sidebar progress bar, the workspace info panel, extra terminals, the browser panel, the diff view, creating or closing workspaces, handing a session off to a fresh workspace, and a repository's .casper.json. Read it first in such a session, then load the reference file for the surface at hand.
+description: Read this at the start of any session where CASPER_WORKSPACE_ID is set — the session is running in a Casper terminal workspace — and before the first `casper` command, whatever it is for. Triggers include: close, merge, create, delete, or list a workspace or its Git worktree; hand this session off to a fresh workspace; tell the user you are blocked, or that you need a decision, a credential, a login, or an approval, and notify them; keep the sidebar progress bar in step with multi-step work; publish a plan, findings, or a summary in the workspace info panel; open an extra terminal; open a URL in the browser panel, screenshot it, click or type on the page, read its console; open or close the diff view; write a repository's .casper.json.
 allowed-tools: AskUserQuestion Read Write Edit Glob Grep Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper *) Bash(git rev-parse *) Bash(git status --porcelain*) Bash(git -C * status --porcelain*) Bash(git worktree list) Bash(git branch*) Bash(git log *) Bash(git add *) Bash(git commit *) Bash(git rebase *) Bash(git merge *) Bash(mktemp *) Bash(mv *)
 ---
 
@@ -50,6 +50,13 @@ casper status set blocked   # when you're waiting on them mid-turn
 Read the reference file before running that surface's commands rather than
 improvising the CLI from memory; each one carries the exact subcommands,
 their flags, and the judgment calls around them.
+
+`casper --help` is not a substitute. It lists subcommands and flags, and
+stops there: it cannot tell you that an operation is a multi-step procedure
+with a stop rule, that another is irreversible, or that the thing you are
+reaching for is a procedure rather than a subcommand. When it rejects a
+guess, it says only that the argument was unexpected — never what to do
+instead. Every one of those has already cost a session real work.
 
 | What you need | Reference |
 |---|---|

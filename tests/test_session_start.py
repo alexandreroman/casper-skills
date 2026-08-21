@@ -44,6 +44,14 @@ class TestSessionStart(unittest.TestCase):
             proc = run_hook(stub, {"source": "startup"})
             self.assertIn("casper notify --message", proc.stdout)
 
+    def test_the_guidance_names_the_observed_failure_mode(self):
+        # SessionStart stdout is the one thing every session provably sees,
+        # so the thing an agent must not do belongs in it by name.
+        with CasperStub() as stub:
+            proc = run_hook(stub, {"source": "startup"})
+            self.assertIn("casper --help", proc.stdout)
+            self.assertIn("before your first `casper` command", proc.stdout)
+
     def test_malformed_stdin_is_survivable(self):
         with CasperStub() as stub:
             proc = subprocess.run(

@@ -12,7 +12,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from hooks.lib import casper
-from hooks.lib.guidance import TEXT
+from hooks.lib import guidance
 
 # `resume` and `compact` continue an existing session, so the info panel still
 # describes work this session knows about. Any other source is a fresh
@@ -30,7 +30,12 @@ def main() -> None:
     # any casper call: the hook runs inside a fixed time budget, and a
     # stalled or slow `casper` call must not cost the session its whole
     # context injection, which is the more important of the two effects.
-    sys.stdout.write(TEXT)
+    #
+    # Both agents export CLAUDE_PLUGIN_ROOT, so the skill's path lands in the
+    # guidance absolute: this is the one moment where where-the-plugin-lives
+    # is known, and spending it turns "find the casper skill" into one file
+    # read with nothing to resolve.
+    sys.stdout.write(guidance.render(os.environ.get("CLAUDE_PLUGIN_ROOT", "")))
 
     casper.run(["status", "set", "idle"], timeout=1)
     casper.run(["progress", "clear"], timeout=1)

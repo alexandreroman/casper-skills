@@ -18,6 +18,31 @@ desc="$(grep -m1 "^description: " "$FILE")"
 echo "$desc" | grep -q "CASPER_WORKSPACE_ID" || fail "description must name CASPER_WORKSPACE_ID as the trigger condition"
 echo "$desc" | grep -qi "Casper terminal workspace" || fail "description must name the Casper terminal workspace condition"
 
+# Discoverability. The description is the only thing an agent reads when
+# deciding whether to load this skill, and it is matched against what the user
+# just asked for — so it has to be written in the vocabulary of a request, not
+# of the plugin. A surface named only in the routing table inside the file is a
+# surface the agent never gets far enough to find. Each word below is one a
+# real request would contain; the session this skill was hardened after asked
+# to "close the workspace" and matched nothing.
+desc_lc="$(echo "$desc" | tr 'A-Z' 'a-z')"
+for pair in "status:blocked" "status:notify" "progress:progress bar" \
+            "info:info panel" "browser:browser panel" "browser:screenshot" \
+            "diff:diff view" "terminal:terminal" "workspace:worktree" \
+            "workspace:merge" "workspace:delete" "handoff:hand this session off" \
+            "repo-config:.casper.json"; do
+  surface="${pair%%:*}"; word="${pair#*:}"
+  case "$desc_lc" in
+    *"$word"*) ;;
+    *) fail "description omits \"$word\": a request that says it will never reach references/$surface.md" ;;
+  esac
+done
+
+# And the trigger has to fire without a request at all, for the behaviours
+# nobody asks for by name (telling the user you are blocked, the progress bar).
+echo "$desc" | grep -qi "before the first .casper. command" \
+  || fail "description must fire before the first casper command, not only on a matching request"
+
 # The notify/blocked rule is the behaviour the whole integration exists for.
 # It has to work before any reference file is read, so it stays inline.
 grep -q "casper notify --message" "$FILE" || fail "the notify rule must be inline, not deferred to a reference"
@@ -26,6 +51,11 @@ grep -q "casper status set blocked" "$FILE" || fail "the blocked rule must be in
 # The guard rule, likewise: every command below it depends on it.
 grep -q "CASPER_WORKSPACE_ID" "$FILE" || fail "missing guard-rule mention in the body"
 grep -qi "never allowed to interrupt\|ignore it and carry on" "$FILE" || fail "missing the never-interrupt-the-task rule"
+
+# Reconstructing the CLI from `--help` instead of reading a reference is the
+# failure this file's routing table exists to prevent; saying so is cheap and
+# the one place every agent sees before its first casper command.
+grep -q '`casper --help` is not a substitute' "$FILE" || fail "the entry skill must say --help is not a substitute for the reference"
 
 # One reference per domain, all nine reachable from the routing table.
 for ref in status progress info browser diff terminal workspace handoff repo-config; do
