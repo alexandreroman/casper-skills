@@ -30,7 +30,7 @@ casper terminal new --command "npm run dev"
 prints one line of JSON to stdout:
 
 ```json
-{"terminal":"3F2A1C4E-...","workspace":"...","command":"npm run dev"}
+{"terminal":"3f2a1c4e-...","workspace":"...","command":"npm run dev"}
 ```
 
 Remember the `terminal` id for the rest of the conversation — you'll need
@@ -104,7 +104,7 @@ casper terminal list
 which prints a JSON array, one entry per open terminal:
 
 ```json
-[{"terminal":"3F2A1C4E-...","working-dir":"..."}]
+[{"terminal":"3f2a1c4e-...","working-dir":"..."}]
 ```
 
 Close a terminal you opened once it's no longer needed:
