@@ -13,7 +13,7 @@ casper info clear                 # empty it, hide the button
 Both print one line of JSON naming the workspace:
 
 ```json
-{"workspace":"FF868B45-..."}
+{"workspace":"ff868b45-..."}
 ```
 
 ## Not persisted — display, never storage
