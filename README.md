@@ -47,9 +47,18 @@ the guard rule, the rule for telling the user when you need them, and a
 routing table. The per-surface detail sits in reference files the agent loads
 only when that surface is in play.
 
-The session guidance injected at `SessionStart` names the skill, so an agent
-in a Casper terminal is pointed at it by the one component that knows for a
-fact where it is running, rather than by description matching alone.
+The session guidance injected at `SessionStart` is what gets that skill
+loaded, and it is the only component that both runs in every session and knows
+for a fact that the session is in a Casper terminal. It names the skill **by
+path**, resolved absolutely from `CLAUDE_PLUGIN_ROOT` where the agent exports
+one: "read the casper skill" asks the agent to resolve something, and an agent
+that does not bother is precisely the failure being designed against. A path
+is one file read with nothing to resolve. Description matching is the second
+line, not the first — which is why the skill's `description` is written in the
+vocabulary of a request ("close, merge, create, delete a workspace or its Git
+worktree", "screenshot", "diff view") rather than of this plugin, and why
+`tests/test_casper_skill_entry.sh` pins that vocabulary against the routing
+table so a new surface cannot be added unfindable.
 
 | Reference | Covers |
 |---|---|
@@ -144,11 +153,29 @@ node --test 'tests/opencode/*.test.js'
 Use the quoted glob form for the opencode tests, not a bare directory —
 `node --test tests/opencode` reports a phantom failure on Node 24.
 
+`tests/test_cli_surface.py` is the one test that talks to the real `casper`
+CLI, because the failure it exists for cannot be caught any other way: a
+reference that understates the CLI reads as a complete description, so an
+agent believes the part that is missing does not exist. It pins what
+`references/workspace.md` claims — its synopses, the subcommands it documents,
+the ones it says do not exist — against `casper help`. It skips itself when
+`casper` is not on `PATH`, so run the suite from inside a Casper terminal to
+get its coverage.
+
 ## Porting to a new agent
 
-See [`docs/porting-to-a-new-agent.md`](docs/porting-to-a-new-agent.md) for the
-integration shapes, the normalized event vocabulary, and the conformance
-rules a new agent must satisfy.
+Fit the new agent into the shape above rather than inventing a new one.
+`hooks/lib/casper.py::EVENT_ACTIONS` is the single source of truth for the
+events whose mapping is a fixed constant; the payload-dependent ones
+(session start, blocked, tasks changed) are computed by each entry point, and
+`tests/test_cross_agent_conformance.sh` is what keeps every agent's argv
+identical. A new agent's integration is not done until a test pins its
+mapping by reading those tables at test time rather than copying them.
+
+Two rules beyond that: the integration never writes into the user's config or
+project — installation is always the target agent's own installer — and a
+capability the new agent lacks is recorded as "not supported" in the matrix
+above, never approximated with a heuristic that will misfire.
 
 ## License
 
