@@ -37,6 +37,49 @@ class TestActionsFor(unittest.TestCase):
                  {"label": "c", "status": "in_progress"}]
         self.assertEqual(progress.actions_for(tasks)[0][5], "3")
 
+class TestNothingInFlight(unittest.TestCase):
+    def test_empty_list(self):
+        self.assertTrue(progress.nothing_in_flight([]))
+
+    def test_all_completed(self):
+        self.assertTrue(progress.nothing_in_flight(
+            [{"status": "completed"}, {"status": "completed"}]))
+
+    def test_one_unfinished_is_enough(self):
+        self.assertFalse(progress.nothing_in_flight(
+            [{"status": "completed"}, {"status": "pending"}]))
+
+
+class TestReconcile(unittest.TestCase):
+    """The turn-end mapping: drop a bar that no longer describes live work."""
+
+    def test_no_tasks_clears(self):
+        # An agent with no task tool drove `casper progress set` by hand, so
+        # there is no task state and nothing else would ever clear the bar.
+        self.assertEqual(progress.reconcile([]), progress.CLEAR)
+
+    def test_all_completed_clears(self):
+        self.assertEqual(
+            progress.reconcile([{"label": "a", "status": "completed"}]),
+            progress.CLEAR)
+
+    def test_in_flight_task_keeps_its_bar(self):
+        self.assertEqual(
+            progress.reconcile([{"label": "a", "status": "in_progress"}]), [])
+
+    def test_agrees_with_actions_for_on_when_there_is_nothing_to_show(self):
+        # The two mappings share one predicate precisely so they cannot
+        # disagree about what "nothing to show" means.
+        for tasks in ([],
+                      [{"label": "a", "status": "completed"}],
+                      [{"label": "a", "status": "in_progress"}],
+                      [{"label": "", "status": "in_progress"}],
+                      [{"label": "a", "status": "pending"}]):
+            cleared = progress.actions_for(tasks) == progress.CLEAR
+            self.assertEqual(cleared, progress.reconcile(tasks) == progress.CLEAR,
+                             f"disagreement on {tasks}")
+
+
 class TestState(unittest.TestCase):
     def test_missing_file_loads_empty(self):
         self.assertEqual(progress.load("/nonexistent/path.json"), {})

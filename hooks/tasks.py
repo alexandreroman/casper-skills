@@ -68,10 +68,9 @@ def _apply_incremental(path, tool_name, tool_input, tool_response):
             return None
 
     tasks = list(state.values())
-    completed = sum(1 for t in tasks if t.get("status") == "completed")
     # Reset the mirror once the batch is done, so the next TaskCreate counts
     # from zero instead of inheriting stale entries.
-    progress.save(path, {} if not tasks or completed == len(tasks) else state)
+    progress.save(path, {} if progress.nothing_in_flight(tasks) else state)
     return tasks
 
 

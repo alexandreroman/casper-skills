@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# The four trivial hooks stay Bash for speed on the PreToolUse hot path.
-# This asserts they emit exactly what EVENT_ACTIONS says, so the fast path
-# can never drift from the policy table.
+# The trivial hooks stay Bash for speed on the PreToolUse hot path. This
+# asserts they emit exactly what EVENT_ACTIONS says, so the fast path can
+# never drift from the policy table.
+#
+# `turn-end` is absent here on purpose: hooks/stop.py emits the table's argv
+# and then reconciles the progress bar against the session's task state, so
+# its full mapping is payload-dependent. tests/test_stop.py covers it, and
+# tests/test_cross_agent_conformance.sh pins it against the opencode plugin.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$DIR/tests/lib/harness.sh"
@@ -21,6 +26,5 @@ print('\n'.join(' '.join(a) for a in EVENT_ACTIONS['$event']))
 
 check user-prompt-submit.sh turn-start
 check pre-tool-use.sh       tool-activity
-check stop.sh               turn-end
 check session-end.sh        session-end
 echo "PASS"

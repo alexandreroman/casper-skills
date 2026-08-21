@@ -22,6 +22,12 @@ class TestHooksJson(unittest.TestCase):
         for cmd in commands("PostToolUse"):
             self.assertIn("hooks/tasks.py", cmd)
 
+    def test_stop_routes_to_the_reconciling_entry_point(self):
+        # Stop reads the session's task mirror off stdin's session_id, so it
+        # cannot be the one-line Bash script it used to be.
+        for cmd in commands("Stop"):
+            self.assertIn("hooks/stop.py", cmd)
+
     def test_notification_and_permission_request_share_one_entry_point(self):
         for event in ("Notification", "PermissionRequest"):
             for cmd in commands(event):
@@ -51,7 +57,8 @@ class TestHooksJson(unittest.TestCase):
 
     def test_no_reference_to_deleted_scripts(self):
         blob = json.dumps(HOOKS)
-        for gone in ("session-start.sh", "notification.py", "post-tool-use-tasks.py"):
+        for gone in ("session-start.sh", "notification.py", "post-tool-use-tasks.py",
+                     "stop.sh"):
             self.assertNotIn(gone, blob)
 
 if __name__ == "__main__":

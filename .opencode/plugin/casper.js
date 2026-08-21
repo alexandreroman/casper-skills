@@ -46,6 +46,17 @@ let runner = (args) => {
 
 const inWorkspace = () => Boolean(process.env.CASPER_WORKSPACE_ID)
 
+const CLEAR = [["progress", "clear"]]
+
+/**
+ * True when a todo list describes no work the bar could honestly show.
+ *
+ * Mirrors hooks/lib/progress.py::nothing_in_flight, and is the single
+ * predicate behind both mappings below for the same reason it is there.
+ */
+const nothingInFlight = (todos) =>
+  todos.length === 0 || todos.every((t) => t.status === "completed")
+
 /**
  * Map an opencode todo list to casper argv.
  *
@@ -56,25 +67,45 @@ const inWorkspace = () => Boolean(process.env.CASPER_WORKSPACE_ID)
 export function progressActions(todos) {
   if (!Array.isArray(todos)) return null
 
-  const total = todos.length
+  if (nothingInFlight(todos)) return CLEAR
+
   const completed = todos.filter((t) => t.status === "completed").length
-
-  if (total === 0 || completed === total) return [["progress", "clear"]]
-
   const current = todos.find((t) => t.status === "in_progress" && t.content)
   if (!current) return null
 
   return [["progress", "set",
-           "--total", String(total),
+           "--total", String(todos.length),
            "--current", String(completed + 1),
            "--label", current.content]]
+}
+
+/**
+ * Map a todo list to the calls that make the bar honest at a turn boundary.
+ *
+ * Mirrors hooks/lib/progress.py::reconcile. The turn boundary is the one
+ * moment the agent is known not to be running, so a bar that no longer
+ * describes live work has to go there — including one this plugin never set,
+ * because an agent drove `casper progress` itself.
+ */
+export function reconcileActions(todos) {
+  return nothingInFlight(Array.isArray(todos) ? todos : []) ? CLEAR : []
 }
 
 export function createHandlers({ client }) {
   let rootSessionID = null
   let busy = false
+  // Last todo list seen, so turn end can reconcile the bar against it. Kept
+  // in memory here for the same reason the Claude/Codex path keeps a mirror
+  // on disk: the turn-end event carries no task state of its own.
+  let todos = []
 
   const run = (args) => { if (inWorkspace()) runner(args) }
+
+  // Report the turn over, then drop a bar that no longer describes live work.
+  const endTurn = () => {
+    run(["status", "set", "done"])
+    for (const args of reconcileActions(todos)) run(args)
+  }
 
   // A lookup that fails or hangs must not be retried on every later event on
   // this hot path, so the negative verdict is cached exactly like a real
@@ -157,6 +188,7 @@ export function createHandlers({ client }) {
         if (child) return
         rootSessionID = sessionID
         busy = false
+        todos = []
         run(["status", "set", "idle"])
         run(["progress", "clear"])
         run(["info", "clear"])
@@ -173,12 +205,14 @@ export function createHandlers({ client }) {
         childCache.delete(sessionID)
         rootSessionID = null
         busy = false
+        todos = []
         return
       }
 
       if (!(await resolveRoot(sessionID))) return
 
       if (type === "todo.updated") {
+        if (Array.isArray(props.todos)) todos = props.todos
         for (const args of progressActions(props.todos) ?? []) run(args)
         return
       }
@@ -192,7 +226,7 @@ export function createHandlers({ client }) {
         } else if (kind === "idle") {
           if (!busy) return
           busy = false
-          run(["status", "set", "done"])
+          endTurn()
         }
         // "retry" is neither a start nor an end; leave the state alone.
         return
@@ -201,7 +235,7 @@ export function createHandlers({ client }) {
       if (type === "session.idle") {
         if (!busy) return
         busy = false
-        run(["status", "set", "done"])
+        endTurn()
         return
       }
 
