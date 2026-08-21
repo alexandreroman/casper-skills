@@ -10,7 +10,12 @@ Use the Casper notification mechanism:
 
 If your work breaks into several distinct steps and isn't over in a single
 action, track it with your todo or plan tool — this keeps the workspace's
-sidebar progress bar in sync. See the casper-progress skill for when and how.
+sidebar progress bar in sync.
+
+Read the `casper` skill now. It is the entry point for every surface this
+workspace exposes — sidebar state, progress bar, info panel, terminals,
+browser panel, diff view, workspaces, and a repo's .casper.json — and it
+routes to a reference file per surface, so you load only what you need.
 
 If `casper` isn't found or a command fails, ignore it and continue — never
 let it interrupt your task.

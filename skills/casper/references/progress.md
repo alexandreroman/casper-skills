@@ -1,8 +1,3 @@
----
-name: casper-progress
-description: Track a non-immediate, multi-step activity with your agent's task-tracking tool so a Casper workspace's sidebar progress bar reflects it. Use whenever you are about to start work that breaks into several distinct steps and is not over in a single action.
----
-
 # Casper progress (sidebar progress bar)
 
 This plugin already mirrors your task list into a Casper workspace's sidebar
@@ -11,7 +6,7 @@ tools, Codex through its plan tool, opencode through its todo list — and the
 plugin watches whichever applies. So the sidebar only advances when you
 actually use that tool; nothing else triggers it.
 
-The judgment call this skill covers is deciding **when** work deserves that
+The judgment call this file covers is deciding **when** work deserves that
 tracking, and using the tool consistently so the bar stays honest.
 
 ## When to track
@@ -38,16 +33,8 @@ Never call `casper progress` yourself — let the hook derive it from that
 tool. Calling it by hand would fight the hook's per-session state and desync
 the bar.
 
-## Guard rule
+## Outside a Casper workspace
 
-The sidebar benefit only exists inside a Casper terminal workspace. The plugin
-sets the `CASPER_WORKSPACE_ID` environment variable in each Casper terminal it
-opens — check for its presence with the same plain test the plugin's own hooks
-use, not by echoing the variable:
-
-```bash
-[ -n "$CASPER_WORKSPACE_ID" ]
-```
-
-Outside a Casper workspace that tool still helps you organize your work;
-there is just no sidebar to update.
+The sidebar benefit only exists inside a Casper terminal workspace, but the
+task-tracking tool still helps you organize your work there — there is just
+no bar to update. Nothing to skip, nothing to guard.

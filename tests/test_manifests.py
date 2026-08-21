@@ -7,16 +7,18 @@ class TestManifests(unittest.TestCase):
     def test_plugin_name_is_stable(self):
         self.assertEqual(load(".claude-plugin", "plugin.json")["name"], "casper")
 
-    def test_marketplace_is_renamed(self):
-        self.assertEqual(load(".claude-plugin", "marketplace.json")["name"], "casper-agents")
+    def test_marketplace_name_is_stable(self):
+        # Together with plugin.json's name this fixes the Claude Code registry
+        # key at "casper@casper"; the Casper app probes for that exact literal.
+        self.assertEqual(load(".claude-plugin", "marketplace.json")["name"], "casper")
 
-    def test_homepage_points_at_the_renamed_repo(self):
-        self.assertIn("casper-agents", load(".claude-plugin", "plugin.json")["homepage"])
+    def test_homepage_points_at_the_repo(self):
+        self.assertIn("casper-skills", load(".claude-plugin", "plugin.json")["homepage"])
         # The marketplace entry's own homepage is the link users actually
         # click from a marketplace listing, so it is checked independently
         # of plugin.json's.
         marketplace = load(".claude-plugin", "marketplace.json")
-        self.assertIn("casper-agents", marketplace["plugins"][0]["homepage"])
+        self.assertIn("casper-skills", marketplace["plugins"][0]["homepage"])
 
     def test_versions_agree(self):
         plugin = load(".claude-plugin", "plugin.json")["version"]

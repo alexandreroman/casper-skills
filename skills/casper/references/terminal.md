@@ -1,9 +1,3 @@
----
-name: casper-terminal
-description: Open, list, and close terminals in a Casper workspace — always when the user explicitly asks to run or launch something in a terminal, and also on your own judgment when a command should run somewhere the user can see or interact with it (a dev server, a watch/tail command). Only useful inside a Casper terminal workspace.
-allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper terminal new) Bash(casper terminal new *) Bash(casper terminal list) Bash(casper terminal list *) Bash(casper terminal close *)
----
-
 # Casper terminal
 
 Casper workspaces can hold more than one terminal. Use the `casper
@@ -18,7 +12,7 @@ terminal` CLI to open, list, and close extra terminals.
   judge whether the command is long-running, interactive, or worth
   watching; that judgment call only applies to the case below.
 - **Your own judgment — beyond explicit requests.** Unlike
-  `casper-browser`/`casper-diff`, this skill isn't limited to explicit
+  `references/browser.md`/`references/diff.md`, this file isn't limited to explicit
   requests. Open a terminal on your own initiative too, whenever the user
   would benefit from seeing or interacting with a running process
   themselves in the Casper UI: a dev server they'll open in a browser, a
@@ -124,19 +118,5 @@ casper terminal close <id>
 All three subcommands accept `--workspace <id-or-name>` to target a
 workspace other than the current one — default is `$CASPER_WORKSPACE_ID`.
 
-This only works inside a terminal Casper opened — if the command fails or
-`casper` isn't found, fall back to a normal shell command and continue;
-never let it interrupt your actual task.
-
-## Guard rule
-
-Only invoke this skill inside a Casper terminal workspace. The plugin sets
-the `CASPER_WORKSPACE_ID` environment variable in each Casper terminal it
-opens — check for its presence with the same plain test the plugin's own
-hooks use, not by echoing the variable:
-
-```bash
-[ -n "$CASPER_WORKSPACE_ID" ]
-```
-
-Then call the CLI as its own command.
+If the command fails or `casper` isn't found, fall back to a normal shell
+command.

@@ -1,9 +1,3 @@
----
-name: casper-handoff
-description: Hand off the current in-progress session to a fresh Casper workspace so another coding-agent instance can continue THIS session's work or reasoning with no loss of information. Use when the user wants to pass the baton — "passe la main à un nouveau workspace", "continue this in a fresh space", "hand off / prolonger le travail ailleurs", "reprends ça dans un nouveau workspace", or when the context window is filling up and the work should carry on cleanly elsewhere. Distinct from offloading a separate/tangential topic (that is casper-workspace). Only useful inside a Casper terminal workspace.
-allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace current) Bash(casper workspace list) Bash(casper workspace new *) Bash(casper notify *) Bash(casper info set *) Bash(git status --porcelain*) Bash(git rev-parse *) Bash(git branch*) Bash(git add *) Bash(git commit *) Bash(git log *) Bash(mktemp *) Bash(mv *)
----
-
 # Casper session handoff
 
 Pass the baton: move the **current, in-progress** session into a fresh
@@ -12,7 +6,7 @@ left off — same objective, same decisions, same next steps — so the user
 can prolong the work or the thinking in a clean space without losing
 anything.
 
-This is **not** offloading a tangential topic (that's `casper-workspace` —
+This is **not** offloading a tangential topic (that's `references/workspace.md` —
 delegating something separate while this session keeps going). A handoff
 *continues this session's line of work* somewhere else, usually because the
 context window is filling up, or the user simply wants a fresh space to
@@ -69,7 +63,7 @@ is already clean, skip straight to Step 2.
 ### Step 2: write the handoff document (the completeness contract)
 
 Write the context to a Markdown temp file **outside any repository** (so it
-can never be staged or committed), exactly as `casper-workspace` describes
+can never be staged or committed), exactly as `references/workspace.md` describes
 for handoff prompts — `mktemp` under the system temp dir, `.md` extension,
 written in **English** regardless of this conversation's language.
 
@@ -132,7 +126,7 @@ Base the new workspace on the **current branch** (not the Space's primary
 branch) so it forks from the WIP tip and continues the same line of work.
 Launch a fresh instance of your own agent CLI with a short inline prompt
 that just reads the handoff file — never `cat` the document inline. This is
-the same launch mechanism documented in `casper-workspace`; follow its
+the same launch mechanism documented in `references/workspace.md`; follow its
 rules for `--command` (retyped as literal keystrokes) and temp-file
 prompts.
 
@@ -178,7 +172,7 @@ EOF
 casper info set --workspace <new-id> --file "$note_file"
 ```
 
-See the `casper-info` skill for how that panel behaves. It is a
+See `references/info.md` for how that panel behaves. It is a
 convenience only: the message is in-memory and lost if Casper restarts, so
 it never replaces the handoff file or the WIP commit as the thing that
 actually carries the work.
@@ -195,16 +189,8 @@ actually carries the work.
 - **Inlining the document into `--command`** — multi-line/quoted context is
   fragile as literal keystrokes. Always go through the temp file.
 
-## Guard rule
+## When the handoff cannot happen
 
-Only invoke this skill inside a Casper terminal workspace. The plugin sets
-the `CASPER_WORKSPACE_ID` environment variable in each Casper terminal it
-opens — check for its presence with the same plain test the plugin's own
-hooks use, not by echoing the variable:
-
-```bash
-[ -n "$CASPER_WORKSPACE_ID" ]
-```
-
-If the command fails or `casper` isn't found, tell the user and continue;
-never let it interrupt your actual task.
+If a command fails or `casper` isn't found, **tell the user** rather than
+carrying on quietly. Every other surface degrades to a cosmetic loss; this
+one leaves them believing the baton was passed when it was not.

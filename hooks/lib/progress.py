@@ -43,7 +43,7 @@ def actions_for(tasks):
 
 
 def state_path(session_id: str) -> str:
-    data_dir = os.environ.get("CLAUDE_PLUGIN_DATA") or "/tmp/casper-agents"
+    data_dir = os.environ.get("CLAUDE_PLUGIN_DATA") or "/tmp/casper-skills"
     os.makedirs(data_dir, exist_ok=True)
     return os.path.join(data_dir, f"{session_id}.json")
 
