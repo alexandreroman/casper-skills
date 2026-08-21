@@ -1,6 +1,6 @@
 import { test, describe, beforeEach } from "node:test"
 import assert from "node:assert/strict"
-import plugin, { progressActions } from "../../.opencode/plugin/casper.js"
+import plugin, { progressActions, reconcileActions } from "../../.opencode/plugin/casper.js"
 
 let calls
 const fakeClient = {
@@ -43,7 +43,9 @@ describe("opencode plugin", () => {
     calls.length = 0
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    assert.deepEqual(calls, [["status", "set", "working"], ["status", "set", "done"]])
+    // No todo list was ever reported, so turn end also reconciles the bar.
+    assert.deepEqual(calls, [
+      ["status", "set", "working"], ["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("repeated busy reports working only once", async () => {
@@ -192,7 +194,7 @@ describe("tool.execute.before", () => {
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     assert.deepEqual(calls, [])
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    assert.deepEqual(calls, [["status", "set", "done"]])
+    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("on a child session it is ignored", async () => {
@@ -308,5 +310,74 @@ describe("progress mirror", () => {
     await h.event(ev("todo.updated", { sessionID: "child", todos: [
       { content: "b", status: "in_progress" }]}))
     assert.deepEqual(calls, [])
+  })
+})
+
+// The bar and the sidebar status are independent surfaces. Nothing but a
+// session restart used to bring them back into agreement, so a bar set during
+// a turn advertised an in-flight step for every later turn.
+describe("turn-end reconciliation", () => {
+  test("a bar left standing with nothing in flight is cleared", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+      { content: "a", status: "completed" },
+      { content: "b", status: "completed" },
+    ]}))
+    calls.length = 0
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
+  })
+
+  test("a genuinely in-flight task keeps its bar across the boundary", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+      { content: "a", status: "completed" },
+      { content: "b", status: "in_progress" },
+    ]}))
+    calls.length = 0
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, [["status", "set", "done"]])
+  })
+
+  test("session.idle reconciles the same way session.status idle does", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    calls.length = 0
+    await h.event(ev("session.idle", { sessionID: "root" }))
+    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
+  })
+
+  test("a new session forgets the previous session's todos", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+      { content: "b", status: "in_progress" }]}))
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    calls.length = 0
+    await h.event(ev("session.idle", { sessionID: "root" }))
+    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
+  })
+
+  test("reconcileActions clears on an empty or finished list", () => {
+    assert.deepEqual(reconcileActions([]), [["progress", "clear"]])
+    assert.deepEqual(reconcileActions([{ content: "a", status: "completed" }]),
+      [["progress", "clear"]])
+  })
+
+  test("reconcileActions leaves an in-flight list alone", () => {
+    assert.deepEqual(reconcileActions([{ content: "a", status: "in_progress" }]), [])
+    assert.deepEqual(reconcileActions([{ content: "a", status: "pending" }]), [])
+  })
+
+  test("reconcileActions treats a non-array as nothing in flight, not a throw", () => {
+    assert.deepEqual(reconcileActions(undefined), [["progress", "clear"]])
+    assert.deepEqual(reconcileActions("not-an-array"), [["progress", "clear"]])
   })
 })

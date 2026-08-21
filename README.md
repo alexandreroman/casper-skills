@@ -34,7 +34,7 @@ it:
 | session start | `status set idle` + `progress clear`, plus `info clear` for a genuinely new session (skipped on resume/compact, which continue an existing one) |
 | turn start | `status set working` |
 | tool activity | `status set working` (holds the explicit-authority latch for the whole turn, so turn end can safely report `done`) |
-| turn end | `status set done` |
+| turn end | `status set done`, plus `progress clear` unless the agent's task list still shows a step in flight — the bar must not outlive the turn that set it |
 | session end | `status set done` |
 | blocked | `status set blocked` + `notify --message "..."` |
 | tasks changed | mirrors the agent's task/plan/todo list into `progress set`/`progress clear` |
@@ -54,7 +54,7 @@ fact where it is running, rather than by description matching alone.
 | Reference | Covers |
 |---|---|
 | `references/status.md` | `casper status set blocked` / `error` for agent states no hook can detect. |
-| `references/progress.md` | Tracking a multi-step, non-immediate activity with the agent's own task-tracking tool, so the progress hook keeps the sidebar bar in sync. |
+| `references/progress.md` | Tracking a multi-step, non-immediate activity with the agent's own task-tracking tool, so the progress hook keeps the sidebar bar in sync — and driving `casper progress` by hand on a harness that exposes no such tool. |
 | `references/info.md` | Publishing, replacing, or clearing the workspace's info panel: one Markdown message per workspace, for a plan, a summary, findings, or the handles of something left running. In-memory only — it displays information, it never stores it. |
 | `references/browser.md` | Opening a URL in Casper's browser panel, driving the page (screenshot, console, DOM, clicks, waits), and closing the panel. |
 | `references/diff.md` | Opening Casper's diff view, in full or for one file, and closing it. |

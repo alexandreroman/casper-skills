@@ -47,16 +47,29 @@ events, or nothing:
 | `session-start` | `status set idle`, `progress clear`, `info clear` unless resumed/compacted |
 | `turn-start` | `status set working` |
 | `tool-activity` | `status set working` (holds the explicit-authority latch) |
-| `turn-end` | `status set done` |
+| `turn-end` | `status set done`, plus `progress clear` when the agent's task state shows nothing in flight |
 | `session-end` | `status set done` |
 | `blocked` | `status set blocked`, `notify --message …` |
 | `tasks-changed` | `progress set …` or `progress clear` |
 
 **`hooks/lib/casper.py::EVENT_ACTIONS` is the single source of truth** for the
-four events whose mapping is a fixed constant (`turn-start`, `tool-activity`,
-`turn-end`, `session-end`). `tests/test_event_conformance.sh` and
+three events whose mapping is a fixed constant (`turn-start`,
+`tool-activity`, `session-end`). `tests/test_event_conformance.sh` and
 `tests/test_cross_agent_conformance.sh` pin every agent's argv against this
-table automatically, so those four cannot drift apart silently.
+table automatically, so those three cannot drift apart silently.
+
+`turn-end` is a hybrid: its status call is the table's (entry points read
+`EVENT_ACTIONS["turn-end"]` rather than spelling it out), but it then
+reconciles the progress bar against the agent's own task state, which is
+payload-dependent. Both halves are pinned together by
+`tests/test_cross_agent_conformance.sh`, which drives every agent's turn-end
+path with the same task list and compares the whole emitted sequence.
+Reconciling here is what keeps `status` and `progress` in agreement: the bar
+claims a step is running *now*, so a new agent's turn-end path must drop a bar
+that describes no live work, or a workspace will sit at done/idle still
+advertising an in-flight step. `hooks/lib/progress.py::reconcile` is the
+mapping, and it deliberately keeps the bar when a task really is in flight, so
+a turn that ends waiting on the user still shows where the work stopped.
 
 The other three — `session-start`, `blocked`, `tasks-changed` — depend on the
 event's payload, so their mapping is computed independently by each entry
@@ -77,7 +90,7 @@ silently.
 ## Required: a conformance test
 
 A new agent's integration is not done until a test proves it emits exactly
-the `EVENT_ACTIONS` argv for every event it supports — not an equivalent
+the `EVENT_ACTIONS` argv for every fixed-mapping event it supports — not an equivalent
 call, not a call with the same effect, the same argv. `tests/test_event_conformance.sh`
 does this for the Bash hooks by shelling out to Python to read the table and
 diffing it against a stub `casper`'s captured calls; `tests/test_cross_agent_conformance.sh`

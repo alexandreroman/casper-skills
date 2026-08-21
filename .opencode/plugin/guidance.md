@@ -10,7 +10,11 @@ Use the Casper notification mechanism:
 
 If your work breaks into several distinct steps and isn't over in a single
 action, track it with your todo or plan tool — this keeps the workspace's
-sidebar progress bar in sync.
+sidebar progress bar in sync. If you have no such tool, drive the bar
+yourself, and clear it as soon as the work is done:
+
+  casper progress set --total <n> --current <i> --label "<current step>"
+  casper progress clear
 
 Read the `casper` skill now. It is the entry point for every surface this
 workspace exposes — sidebar state, progress bar, info panel, terminals,
