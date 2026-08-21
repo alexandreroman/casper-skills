@@ -9,6 +9,5 @@
   "homepage": "https://github.com/alexandreroman/casper-skills",
   "license": "Apache-2.0",
   "keywords": ["casper", "terminal", "workspace", "hooks"],
-  "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "skills": "./skills/"
 }

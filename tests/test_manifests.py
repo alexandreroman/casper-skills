@@ -26,6 +26,12 @@ class TestManifests(unittest.TestCase):
         self.assertEqual(plugin, entry)
         self.assertEqual(load("package.json")["version"], plugin)
 
+    def test_plugin_does_not_declare_the_standard_hooks_file(self):
+        # Claude Code loads hooks/hooks.json on its own; naming it again in
+        # manifest.hooks makes the plugin fail to install with a duplicate
+        # hooks file error. manifest.hooks is only for extra hook files.
+        self.assertNotIn("hooks", load(".claude-plugin", "plugin.json"))
+
     def test_package_main_is_the_opencode_plugin(self):
         self.assertEqual(load("package.json")["main"], ".opencode/plugin/casper.js")
 
