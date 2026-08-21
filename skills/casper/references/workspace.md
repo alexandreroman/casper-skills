@@ -1,9 +1,3 @@
----
-name: casper-workspace
-description: List Casper workspaces, resolve the current one, create a workspace (Git worktree) — including to offload or delegate a task to a dedicated coding-agent instance running isolated in its own worktree instead of the current session — delete one outright (discards its work, no merge), or close/merge one back into its origin branch first (rebase, merge commit, then delete). list/current are safe anytime; new/delete/close/merge only on explicit request, and both delete and close/merge are destructive and irreversible. Only useful inside a Casper terminal workspace.
-allowed-tools: AskUserQuestion Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper workspace list) Bash(casper workspace current) Bash(casper workspace new *) Bash(casper workspace delete) Bash(casper workspace delete *) Bash(git worktree list) Bash(git status --porcelain*) Bash(git -C * status --porcelain*) Bash(git rebase *) Bash(git merge *)
----
-
 # Casper workspace
 
 Manage Casper workspaces (each one is a Git worktree) with the `casper
@@ -58,7 +52,7 @@ Running several workspaces that each bind **host ports** (dev server,
 database, `docker compose` published ports)? They will collide unless the
 repo derives its ports off **`CASPER_PORT`**, the collision-free base Casper
 injects per workspace (a reserved band of 10, `CASPER_PORT`..`CASPER_PORT+10`).
-See the casper-config skill's "Port remapping in parallel workspaces" section.
+See `references/repo-config.md`'s "Port remapping in parallel workspaces" section.
 
 ### Default to launching a new agent instance there
 
@@ -301,19 +295,5 @@ other than the current one — default is `$CASPER_WORKSPACE_ID`. `list` has
 no target (it's global); `current` has no override (it's specifically
 about `$CASPER_WORKSPACE_ID`).
 
-This only works inside a terminal Casper opened — if the command fails or
-`casper` isn't found, tell the user and continue; never let it interrupt
-your actual task.
-
-## Guard rule
-
-Only invoke this skill inside a Casper terminal workspace. The plugin sets
-the `CASPER_WORKSPACE_ID` environment variable in each Casper terminal it
-opens — check for its presence with the same plain test the plugin's own
-hooks use, not by echoing the variable:
-
-```bash
-[ -n "$CASPER_WORKSPACE_ID" ]
-```
-
-Then call the CLI as its own command.
+If the command fails or `casper` isn't found, tell the user — a workspace
+operation they think happened is worse than one they know did not.

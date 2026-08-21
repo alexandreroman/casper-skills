@@ -1,9 +1,3 @@
----
-name: casper-info
-description: Publish, replace, or clear a Markdown information message in a Casper workspace's info panel — the re-readable surface for a plan, a summary of what changed, review findings, test results, the URL/credentials of a running app, or next steps. The message is in-memory only and does not survive a Casper restart, so it displays information, it never stores it. Use when the user asks for something to be shown or kept in the info panel, and on your own judgment when a result deserves to outlive the terminal scrollback. Only useful inside a Casper terminal workspace.
-allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper info set *) Bash(casper info clear) Bash(casper info clear *) Bash(mktemp *) Bash(mv *)
----
-
 # Casper info panel
 
 Every Casper workspace has **one** info panel: a single Markdown message,
@@ -83,11 +77,11 @@ fills with noise stops being worth opening.
 
 | Need | Use |
 |---|---|
-| Content to keep in view and re-read | **this skill** — `casper info set` |
+| Content to keep in view and re-read | **this file** — `casper info set` |
 | "I need you *now*" (attention flag) | `casper notify --message "..."` |
-| Agent state (blocked / error) | `casper-status` |
-| Step-by-step advancement of the current work | `casper-progress` (your agent's task-tracking tool) |
-| Something to watch running | `casper-terminal` |
+| Agent state (blocked / error) | `references/status.md` |
+| Step-by-step advancement of the current work | `references/progress.md` (your agent's task-tracking tool) |
+| Something to watch running | `references/terminal.md` |
 
 The info panel is silent — it never grabs attention. If the user must act
 on what you published, `casper notify --message "..."` **as well**, and
@@ -180,26 +174,12 @@ casper info clear --workspace <id-or-name>
 ```
 
 Use it to leave a message in a workspace you created for someone else's
-instance to find (see `casper-workspace` and `casper-handoff`) — the
+instance to find (see `references/workspace.md` and `references/handoff.md`) — the
 panel belongs to the workspace, addressed by its id or name, so you never
 need a terminal open there to write into it. It still does not survive a
 Casper restart, so pair it with something on disk whenever it matters.
 Resolve the target with `casper workspace list` when you only have a
 name.
 
-This only works inside a terminal Casper opened — if the command fails or
-`casper` isn't found, report the content in the conversation instead and
-continue; never let it interrupt your actual task.
-
-## Guard rule
-
-Only invoke this skill inside a Casper terminal workspace. The plugin sets
-the `CASPER_WORKSPACE_ID` environment variable in each Casper terminal it
-opens — check for its presence with the same plain test the plugin's own
-hooks use, not by echoing the variable:
-
-```bash
-[ -n "$CASPER_WORKSPACE_ID" ]
-```
-
-Then call the CLI as its own command.
+If the command fails or `casper` isn't found, report the content in the
+conversation instead.

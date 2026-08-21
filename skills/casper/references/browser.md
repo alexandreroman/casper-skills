@@ -1,9 +1,3 @@
----
-name: casper-browser
-description: Open or close a URL in a Casper workspace's browser panel, and automate that page — screenshot it, read its console errors, inspect its DOM/HTML, read its current URL, evaluate JavaScript, click/type/press keys, and wait for conditions. Use when the user asks to see or open a URL (including a local dev server, preview, or running build), and when you (a coding agent) need to verify a frontend change end-to-end: check for console errors, capture a screenshot, confirm a navigation or redirect landed, or drive the running app. Only useful inside a Casper terminal workspace.
-allowed-tools: Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper browser *)
----
-
 # Casper browser
 
 Casper's browser panel is both a viewer (show the user a URL) and a
@@ -81,19 +75,9 @@ You can then read the screenshot back with whatever file-reading tool you have,
 and drive interactions (`click`/`type`/`key` → `wait` → `console`) to exercise
 a flow.
 
-## Guard rule
+## Targeting and fallback
 
-Only invoke this skill inside a Casper terminal workspace. The plugin sets
-the `CASPER_WORKSPACE_ID` environment variable in each Casper terminal it
-opens — check for its presence with the same plain test the plugin's own
-hooks use, not by echoing the variable:
-
-```bash
-[ -n "$CASPER_WORKSPACE_ID" ]
-```
-
-Every command targets that workspace by default; pass
-`--workspace <id-or-name>` to address another one. This only works inside a
-terminal Casper opened — if a command fails or `casper` isn't found, fall
-back to telling the user the URL (or verifying another way) and continue;
-never let it interrupt your actual task.
+Every command targets the current workspace by default; pass
+`--workspace <id-or-name>` to address another one. If a command fails or
+`casper` isn't found, fall back to telling the user the URL — or verifying
+another way — rather than dropping the verification silently.

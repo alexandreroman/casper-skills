@@ -17,8 +17,11 @@ class TestGuidance(unittest.TestCase):
         for banned in ("claude", "codex", "opencode", "taskcreate", "taskupdate"):
             self.assertNotIn(banned, lowered, f"guidance names a specific agent or tool: {banned}")
 
-    def test_points_at_the_progress_skill(self):
-        self.assertIn("casper-progress", TEXT)
+    def test_points_at_the_entry_skill(self):
+        # The guidance is the deterministic half of the entry skill's trigger:
+        # description matching is a bet, but this hook only runs when the
+        # session really is in a Casper terminal.
+        self.assertIn("Read the `casper` skill", TEXT)
 
     def test_ends_with_newline(self):
         self.assertTrue(TEXT.endswith("\n"))

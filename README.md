@@ -39,36 +39,29 @@ it:
 | blocked | `status set blocked` + `notify --message "..."` |
 | tasks changed | mirrors the agent's task/plan/todo list into `progress set`/`progress clear` |
 
-Fallback skills cover the judgment calls no hook can infer automatically —
-either by reaching for the `casper` CLI directly or by nudging the agent into
-behaviour the hooks then pick up. They are plain `SKILL.md` files, read
-natively by all three agents:
+One skill covers the judgment calls no hook can infer automatically — either
+by reaching for the `casper` CLI directly or by nudging the agent into
+behaviour the hooks then pick up. `skills/casper/SKILL.md` is a plain
+`SKILL.md`, read natively by all three agents, and it is deliberately small:
+the guard rule, the rule for telling the user when you need them, and a
+routing table. The per-surface detail sits in reference files the agent loads
+only when that surface is in play.
 
-- `casper-status` — call `casper status set blocked` / `casper status set
-  error` for agent states no hook can detect.
-- `casper-progress` — track a multi-step, non-immediate activity with the
-  agent's own task-tracking tool so the progress hook keeps the sidebar
-  progress bar in sync.
-- `casper-browser` — open a URL in Casper's browser panel when the user
-  asks to see something in a browser, or close the panel when asked.
-- `casper-diff` — open Casper's diff view when the user asks to see a diff,
-  in full or for one file, or close it when asked.
-- `casper-info` — publish, replace, or clear the workspace's info panel: one
-  Markdown message per workspace, for a plan, a summary, findings, or the
-  handles of something left running. In-memory only — it displays
-  information, it never stores it.
-- `casper-terminal` — open, list, and close terminals in the workspace,
-  always when the user explicitly asks to run something in a terminal, and
-  also on the agent's own judgment when a command should run somewhere
-  visible or interactive rather than in the background.
-- `casper-workspace` — list workspaces or resolve the current one anytime;
-  create or delete a workspace (Git worktree) only on explicit request.
-- `casper-handoff` — hand off the current in-progress session to a fresh
-  workspace so a new agent instance continues this session's work with no
-  loss of information (WIP commit + a self-contained handoff document).
-- `casper-config` — generate or update a repo's `.casper.json` (the files
-  copied into new workspaces and the named `workspace.scripts`, including the
-  reserved setup/teardown hooks); authoring works in any Git repo.
+The session guidance injected at `SessionStart` names the skill, so an agent
+in a Casper terminal is pointed at it by the one component that knows for a
+fact where it is running, rather than by description matching alone.
+
+| Reference | Covers |
+|---|---|
+| `references/status.md` | `casper status set blocked` / `error` for agent states no hook can detect. |
+| `references/progress.md` | Tracking a multi-step, non-immediate activity with the agent's own task-tracking tool, so the progress hook keeps the sidebar bar in sync. |
+| `references/info.md` | Publishing, replacing, or clearing the workspace's info panel: one Markdown message per workspace, for a plan, a summary, findings, or the handles of something left running. In-memory only — it displays information, it never stores it. |
+| `references/browser.md` | Opening a URL in Casper's browser panel, driving the page (screenshot, console, DOM, clicks, waits), and closing the panel. |
+| `references/diff.md` | Opening Casper's diff view, in full or for one file, and closing it. |
+| `references/terminal.md` | Opening, listing, and closing terminals in the workspace, on explicit request and on the agent's own judgment when a command should run somewhere visible or interactive. |
+| `references/workspace.md` | Listing workspaces or resolving the current one anytime; creating, deleting, or closing/merging one (Git worktree) only on explicit request. |
+| `references/handoff.md` | Handing the current in-progress session to a fresh workspace so a new agent instance continues this session's work with no loss of information (WIP commit + a self-contained handoff document). |
+| `references/repo-config.md` | Generating or updating a repo's `.casper.json` (the files copied into new workspaces and the named `workspace.scripts`, including the reserved setup/teardown hooks); authoring works in any Git repo. |
 
 Every hook and the opencode plugin are a no-op outside a Casper terminal —
 they check for `$CASPER_WORKSPACE_ID` before doing anything, and never block
@@ -93,14 +86,26 @@ writes into another agent's configuration or into a user's project.
 This repository self-hosts a plugin marketplace:
 
 ```
-/plugin marketplace add alexandreroman/casper-agents
-/plugin install casper@casper-agents
+/plugin marketplace add alexandreroman/casper-skills
+/plugin install casper@casper
 ```
+
+> [!IMPORTANT]
+> If you ever installed this plugin from a marketplace whose name differed
+> only by case — a local `directory` marketplace called `Casper`, for
+> instance — **remove that registration before installing.** Claude Code
+> treats `casper@Casper` and `casper@casper` as two distinct plugins and
+> loads the hooks of both, so every lifecycle event fires twice. The cache
+> paths make it easy to miss: on a case-insensitive filesystem the two
+> marketplace directories are the same directory, and the old and new
+> versions simply sit side by side inside it. Casper reports the integration
+> as installed and current in that state, so nothing will flag the duplicate
+> for you.
 
 ### Codex
 
 ```
-codex plugin marketplace add alexandreroman/casper-agents
+codex plugin marketplace add alexandreroman/casper-skills
 codex plugin add casper
 ```
 
@@ -113,11 +118,11 @@ codex plugin add casper
 
 ### opencode
 
-Add `casper-agents` to the `plugin` array in `~/.config/opencode/opencode.json`:
+Add `casper-skills` to the `plugin` array in `~/.config/opencode/opencode.json`:
 
 ```json
 {
-  "plugin": ["casper-agents"]
+  "plugin": ["casper-skills"]
 }
 ```
 
@@ -131,7 +136,7 @@ No marketplace or install step is needed for local development. For Claude
 Code:
 
 ```bash
-claude --plugin-dir /path/to/casper-agents
+claude --plugin-dir /path/to/casper-skills
 ```
 
 loads this plugin for that session only. Run it from inside a Casper
