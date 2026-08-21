@@ -90,18 +90,6 @@ This repository self-hosts a plugin marketplace:
 /plugin install casper@casper
 ```
 
-> [!IMPORTANT]
-> If you ever installed this plugin from a marketplace whose name differed
-> only by case — a local `directory` marketplace called `Casper`, for
-> instance — **remove that registration before installing.** Claude Code
-> treats `casper@Casper` and `casper@casper` as two distinct plugins and
-> loads the hooks of both, so every lifecycle event fires twice. The cache
-> paths make it easy to miss: on a case-insensitive filesystem the two
-> marketplace directories are the same directory, and the old and new
-> versions simply sit side by side inside it. Casper reports the integration
-> as installed and current in that state, so nothing will flag the duplicate
-> for you.
-
 ### Codex
 
 ```
