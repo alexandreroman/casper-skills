@@ -23,6 +23,15 @@ missing or failing CLI as a no-op:
 If `casper` isn't found or a command fails, ignore it and carry on. Casper is
 never allowed to interrupt, block, or fail the task at hand.
 
+## Codex socket access
+
+Casper controls the current app through `$CASPER_CONTROL_SOCKET`, a Unix-domain
+socket outside Codex's workspace sandbox. When calling `casper` from Codex,
+request `sandbox_permissions: require_escalated`; `allowed-tools` authorizes
+the command but does not grant that socket access. When requesting persistent
+approval, use `prefix_rule: ["casper"]`; never broaden it beyond that command
+prefix.
+
 ## Tell the user when you need them
 
 This is the one behaviour that matters most, so it lives here rather than in a

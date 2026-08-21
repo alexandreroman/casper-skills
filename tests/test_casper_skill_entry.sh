@@ -36,6 +36,11 @@ done
 grep -q "^allowed-tools:.*Bash(casper \*)" "$FILE" || fail "missing allowed-tools pre-authorization for the casper CLI"
 grep -q '^allowed-tools:.*Bash(\[ -n "\$CASPER_WORKSPACE_ID" \])' "$FILE" || fail "missing allowed-tools pre-authorization for the workspace guard"
 
+# Casper uses a control socket outside Codex's workspace sandbox. The skill
+# must distinguish command authorization from elevated socket access.
+grep -q 'sandbox_permissions: require_escalated' "$FILE" || fail "missing Codex elevated socket-access guidance"
+grep -q 'prefix_rule: \["casper"\]' "$FILE" || fail "missing scoped Casper approval guidance"
+
 # Size cap: the point of the split is that this file stays resident. Without a
 # cap the routing table grows back into the manual it replaced.
 lines="$(wc -l < "$FILE" | tr -d ' ')"
