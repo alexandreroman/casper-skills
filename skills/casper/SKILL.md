@@ -32,12 +32,6 @@ the command but does not grant that socket access. When requesting persistent
 approval, use `prefix_rule: ["casper"]`; never broaden it beyond that command
 prefix.
 
-For progress tracking, read `references/progress.md` before reaching for the
-CLI. If the harness exposes a plan, todo, or task tool, update that tool and
-never duplicate its updates with `casper progress`: the hook mirrors it to the
-sidebar without an extra permission prompt. Call `casper progress` directly
-only when no such tool exists.
-
 ## Tell the user when you need them
 
 This is the one behaviour that matters most, so it lives here rather than in a
@@ -50,6 +44,13 @@ options is a blocked state, not a finished one.
 casper notify --message "<what you need from them>"
 casper status set blocked   # when you're waiting on them mid-turn
 ```
+
+## Progress tracking
+
+If the harness exposes a plan, todo, or task tool, update that tool and never
+duplicate its updates with `casper progress`: the hook mirrors it to the
+sidebar without an extra permission prompt. Only when no such tool exists do
+you drive the bar yourself — read `references/progress.md` first.
 
 ## Where to go next
 

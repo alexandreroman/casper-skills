@@ -196,13 +196,16 @@ export function createHandlers({ client }) {
       }
 
       if (type === "session.deleted") {
+        // Drop the cache entry whoever the session was: this plugin lives for
+        // the whole opencode process, and every subagent session that is only
+        // ever cached and never uncached grows the map without bound.
+        if (sessionID) childCache.delete(sessionID)
         // Synchronous check only: a delete must never adopt. If this session
         // is not already the tracked root, ignore it — including the case
         // where no root is bound yet, which would otherwise flip the sidebar
         // to "done" for a session the plugin never tracked.
         if (rootSessionID === null || sessionID !== rootSessionID) return
         run(["status", "set", "done"])
-        childCache.delete(sessionID)
         rootSessionID = null
         busy = false
         todos = []
@@ -256,9 +259,9 @@ export function createHandlers({ client }) {
   }
 }
 
-// __test is attached to the default export (not just named) because tests
-// import the plugin as a single default — `plugin.__test.setRunner(...)` —
-// to mirror how opencode path-loads the module.
+// __test hangs off the default export because tests import the plugin as a
+// single default — `plugin.__test.setRunner(...)` — mirroring how opencode
+// path-loads the module.
 const plugin = {
   id: "casper",
   server: async (input) => createHandlers(input ?? {}),
@@ -270,4 +273,3 @@ plugin.__test = {
 }
 
 export default plugin
-export const __test = plugin.__test

@@ -115,6 +115,25 @@ describe("opencode plugin", () => {
     assert.deepEqual(calls, [])
   })
 
+  test("a deleted child session is dropped from the child cache", async () => {
+    // The plugin lives for the whole opencode process, so a cache entry that
+    // is never uncached is an unbounded leak, one entry per subagent session.
+    // Observable only through the lookup: re-asking about a forgotten id has
+    // to hit client.session.list() again.
+    let listCalls = 0
+    const client = {
+      session: { list: async () => { listCalls++; return { data: [] } } },
+    }
+    const h = await build(client)
+    await h.event(ev("session.created", { info: { id: "child", parentID: "root" } }))
+    await h.event(ev("session.status", { sessionID: "child", status: { type: "busy" } }))
+    assert.equal(listCalls, 0, "session.created should have cached the verdict")
+
+    await h.event(ev("session.deleted", { sessionID: "child" }))
+    await h.event(ev("session.status", { sessionID: "child", status: { type: "busy" } }))
+    assert.equal(listCalls, 1, "the entry survived session.deleted")
+  })
+
   test("outside a Casper workspace nothing is emitted", async () => {
     delete process.env.CASPER_WORKSPACE_ID
     const h = await build()
