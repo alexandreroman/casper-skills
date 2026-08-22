@@ -48,6 +48,16 @@ const inWorkspace = () => Boolean(process.env.CASPER_WORKSPACE_ID)
 
 const CLEAR = [["progress", "clear"]]
 
+// A step the bar will never advance to again. Mirrors
+// hooks/lib/progress.py::FINISHED. opencode's todo tool is the only one of
+// the three that can mark a step "cancelled", and counting that as live work
+// is what used to strand the bar: a list whose remaining steps were all
+// cancelled had nothing in progress to relabel it with and nothing finished
+// enough to clear it, so the last label stood over work that had stopped.
+const FINISHED = new Set(["completed", "cancelled"])
+
+const finishedCount = (todos) => todos.filter((t) => FINISHED.has(t.status)).length
+
 /**
  * True when a todo list describes no work the bar could honestly show.
  *
@@ -55,7 +65,7 @@ const CLEAR = [["progress", "clear"]]
  * predicate behind both mappings below for the same reason it is there.
  */
 const nothingInFlight = (todos) =>
-  todos.length === 0 || todos.every((t) => t.status === "completed")
+  todos.length === 0 || finishedCount(todos) === todos.length
 
 /**
  * Map an opencode todo list to casper argv.
@@ -69,13 +79,13 @@ export function progressActions(todos) {
 
   if (nothingInFlight(todos)) return CLEAR
 
-  const completed = todos.filter((t) => t.status === "completed").length
+  const finished = finishedCount(todos)
   const current = todos.find((t) => t.status === "in_progress" && t.content)
   if (!current) return null
 
   return [["progress", "set",
            "--total", String(todos.length),
-           "--current", String(completed + 1),
+           "--current", String(finished + 1),
            "--label", current.content]]
 }
 

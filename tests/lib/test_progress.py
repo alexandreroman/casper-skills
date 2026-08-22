@@ -37,6 +37,17 @@ class TestActionsFor(unittest.TestCase):
                  {"label": "c", "status": "in_progress"}]
         self.assertEqual(progress.actions_for(tasks)[0][5], "3")
 
+    def test_a_cancelled_step_is_counted_as_passed_not_pending(self):
+        # The bar will never advance to a cancelled step, so it sits behind
+        # the current one. Counting it as live work would report "2 of 3"
+        # while the third and last step is the one actually running.
+        tasks = [{"label": "a", "status": "completed"},
+                 {"label": "b", "status": "cancelled"},
+                 {"label": "c", "status": "in_progress"}]
+        self.assertEqual(progress.actions_for(tasks), [[
+            "progress", "set", "--total", "3", "--current", "3", "--label", "c"]])
+
+
 class TestNothingInFlight(unittest.TestCase):
     def test_empty_list(self):
         self.assertTrue(progress.nothing_in_flight([]))
@@ -48,6 +59,21 @@ class TestNothingInFlight(unittest.TestCase):
     def test_one_unfinished_is_enough(self):
         self.assertFalse(progress.nothing_in_flight(
             [{"status": "completed"}, {"status": "pending"}]))
+
+    def test_cancelled_counts_as_finished(self):
+        # opencode's todo tool can cancel a step. Before this, a run that
+        # ended with its remaining steps cancelled had nothing in progress to
+        # relabel the bar with and nothing "finished" enough to clear it, so
+        # the last label stood over work that had stopped — across turns.
+        self.assertTrue(progress.nothing_in_flight(
+            [{"status": "completed"}, {"status": "cancelled"}]))
+        self.assertTrue(progress.nothing_in_flight([{"status": "cancelled"}]))
+
+    def test_a_wholly_cancelled_list_clears_the_bar_rather_than_stranding_it(self):
+        tasks = [{"label": "a", "status": "completed"},
+                 {"label": "b", "status": "cancelled"}]
+        self.assertEqual(progress.actions_for(tasks), progress.CLEAR)
+        self.assertEqual(progress.reconcile(tasks), progress.CLEAR)
 
 
 class TestReconcile(unittest.TestCase):
@@ -74,7 +100,12 @@ class TestReconcile(unittest.TestCase):
                       [{"label": "a", "status": "completed"}],
                       [{"label": "a", "status": "in_progress"}],
                       [{"label": "", "status": "in_progress"}],
-                      [{"label": "a", "status": "pending"}]):
+                      [{"label": "a", "status": "pending"}],
+                      [{"label": "a", "status": "cancelled"}],
+                      [{"label": "a", "status": "cancelled"},
+                       {"label": "b", "status": "completed"}],
+                      [{"label": "a", "status": "cancelled"},
+                       {"label": "b", "status": "in_progress"}]):
             cleared = progress.actions_for(tasks) == progress.CLEAR
             self.assertEqual(cleared, progress.reconcile(tasks) == progress.CLEAR,
                              f"disagreement on {tasks}")

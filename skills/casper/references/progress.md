@@ -16,25 +16,52 @@ Track progress whenever the work in front of you:
 Do **not** track a single, immediate action (answering a question, one edit,
 one command) — a one-step progress bar is just noise.
 
+## First, find out which path you are on
+
+There are two ways to drive the bar and they are mutually exclusive. Which one
+applies is decided by a single fact: whether your own tool list contains a
+task-tracking tool. Look — do not assume, and do not guess from the harness's
+name:
+
+| Harness | The tool | Path |
+|---|---|---|
+| Claude Code | its task tools | task tool |
+| Codex | its plan tool | task tool |
+| opencode | its todo list tool (write + read) | task tool |
+| anything with no such tool | — | by hand |
+
+On the task-tool path you **never run `casper progress` yourself**. The
+integration watches that tool and mirrors it into the bar for you, keeping its
+own per-session state; a hand-written `casper progress set` on top of that
+overwrites what the mirror just wrote, and the next tool update overwrites you
+straight back. The two fight, and the bar ends up describing neither. The CLI
+below is for the *other* path only.
+
 ## How to track: with a task tool
 
-Most harnesses give you one — Claude Code's task tools, Codex's plan tool,
-opencode's todo list. This plugin watches whichever applies and mirrors it
-into the bar, so the bar advances as a side effect of using the tool and you
-never call `casper progress` yourself. Calling it by hand on this path would
-fight the hook's per-session state and desync the bar.
+The bar advances as a side effect of using the tool, so all you do is use it
+well:
 
 1. Create every step up front, so the total is known and the bar shows real
    proportions from the start.
-2. As you work, mark a step in progress when you begin it and completed when
-   it is truly done. Keep exactly one step in progress at a time — the sidebar
-   shows that step's label as the current activity.
+2. Mark a step in progress when you begin it and completed when it is truly
+   done. Keep **exactly one** step in progress at a time — the bar takes its
+   label from that step, so with none in progress the previous label stands
+   until the next update, and with two the first one wins arbitrarily.
+3. Do not batch the updates. A list updated only at the end of the work is a
+   bar that was wrong for the whole of it.
+
+A step you decide not to do is marked cancelled, not left pending: cancelled
+counts as finished, so the bar advances past it and clears once the last live
+step is gone. Leaving it pending strands the bar on work that will never run.
+
+Every step of this helps you outside a Casper workspace too — there is simply
+no bar there. Nothing to guard, nothing to skip.
 
 ## How to track: with no task tool
 
-Some harnesses expose no todo, plan, or task tool at all. Check your own tool
-list rather than assuming; when there is none, no hook can derive the bar, and
-driving it yourself is the only option:
+Only when the table above put you on this path. No mirror can derive the bar,
+so driving it yourself is the only option:
 
 ```bash
 casper progress set --total 6 --current 5 --label "Splitting AppModel.swift"
@@ -53,20 +80,14 @@ Two rules make hand-driving safe:
 
 ## When the bar clears
 
-- **Every step completed**, on the task-tool path — the hook clears it the
-  moment the last step is marked done.
+- **Every step finished**, on the task-tool path — completed or cancelled, the
+  mirror clears the bar the moment the last live step is gone.
 - **The end of every turn**, unless your task tool still shows a step in
   flight. Between turns the agent is not running, so a bar describing a step
-  "in progress" would be false; the `Stop` hook consults the same task state
-  the progress hook maintains and drops the bar when nothing is live. A task
+  "in progress" would be false; the turn-end hook consults the same task state
+  the mirror maintains and drops the bar when nothing is live. A step
   genuinely still in flight keeps its bar, so a turn that ends waiting on the
   user still shows where the work stopped. With no task state to consult — the
   hand-driven case — there is nothing to distinguish live work from stale, so
   the bar goes.
 - **Session start**, along with the rest of the workspace surfaces.
-
-## Outside a Casper workspace
-
-The sidebar benefit only exists inside a Casper terminal workspace, but the
-task-tracking tool still helps you organize your work there — there is just
-no bar to update. Nothing to skip, nothing to guard.

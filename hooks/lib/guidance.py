@@ -26,10 +26,16 @@ needs me, the state is what makes the sidebar say so:
   casper status set blocked   # every time you end a turn waiting on me
 
 If your work breaks into several distinct steps and isn't over in a single
-action, track it with your todo or plan tool — this keeps the workspace's
-sidebar progress bar in sync. Check your own tool list rather than assuming
-you have one; if you don't, driving the bar yourself is not optional, it is
-how that work gets tracked here. Clear it as soon as the work is done:
+action, track it with your task, plan, or todo tool — that tool is how the
+workspace's sidebar progress bar gets filled in. Create every step up front
+and keep exactly one in progress; the bar follows along on its own, so do not
+run `casper progress` as well — a hand-written bar and a mirrored one
+overwrite each other and the sidebar ends up showing neither.
+
+Check your own tool list rather than assuming, in either direction. Only if
+you genuinely have no such tool is driving the bar yourself the right move,
+and then it is not optional — it is how that work gets tracked here. Clear it
+as soon as the work is done:
 
   casper progress set --total <n> --current <i> --label "<current step>"
   casper progress clear

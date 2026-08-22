@@ -31,19 +31,32 @@ console.log(JSON.stringify(calls))
   echo "FAIL: turn-start mismatch"; echo "  expected $(expected_for turn-start)"; echo "  got      $got_start"; exit 1; }
 
 # progressActions (JS) must agree with actions_for (Python) on the same input.
-fixture='[{"label":"a","status":"completed"},{"label":"b","status":"in_progress"},{"label":"c","status":"pending"}]'
-py="$(python3 -c "
-import json
+# "cancelled" only ever arrives from opencode, but the predicate that reads it
+# is shared, so both sides are held to it: a status one implementation counts
+# as finished and the other as live work is exactly how a bar gets stranded.
+check_progress() {
+  local fixture="$1" what="$2" py js
+  py="$(FIXTURE="$fixture" python3 -c "
+import json, os
 from hooks.lib.progress import actions_for
-print(json.dumps(actions_for(json.loads('$fixture')), separators=(',', ':')))
+print(json.dumps(actions_for(json.loads(os.environ['FIXTURE'])), separators=(',', ':')))
 ")"
-js="$(node --input-type=module -e '
+  js="$(node --input-type=module -e '
 import { progressActions } from "./.opencode/plugin/casper.js"
 const todos = JSON.parse(process.argv[1]).map(t => ({ content: t.label, status: t.status }))
 console.log(JSON.stringify(progressActions(todos)))
 ' "$fixture")"
-[ "$py" = "$js" ] || { echo "FAIL: progress mismatch"; echo "  py $py"; echo "  js $js"; exit 1; }
-echo "  ok: progressActions == actions_for"
+  [ "$py" = "$js" ] || {
+    echo "FAIL: progress mismatch ($what)"; echo "  py $py"; echo "  js $js"; exit 1; }
+  echo "  ok: progressActions == actions_for, $what -> $py"
+}
+
+check_progress '[{"label":"a","status":"completed"},{"label":"b","status":"in_progress"},{"label":"c","status":"pending"}]' \
+               "a step in flight"
+check_progress '[{"label":"a","status":"completed"},{"label":"b","status":"cancelled"}]' \
+               "every remaining step cancelled"
+check_progress '[{"label":"a","status":"completed"},{"label":"b","status":"cancelled"},{"label":"c","status":"in_progress"}]' \
+               "a cancelled step behind the current one"
 
 # The session-start triple and the blocked pair are payload-dependent, so
 # they are not in EVENT_ACTIONS: hooks/session-start.py, hooks/blocked.py,
@@ -170,5 +183,6 @@ check_turn_end() {
 check_turn_end '[]'                                                        "nothing tracked at all"
 check_turn_end '[{"label":"a","status":"completed"}]'                      "every step finished"
 check_turn_end '[{"label":"a","status":"completed"},{"label":"b","status":"in_progress"}]' "a step still in flight"
+check_turn_end '[{"label":"a","status":"completed"},{"label":"b","status":"cancelled"}]'   "the rest cancelled"
 
 echo "PASS"

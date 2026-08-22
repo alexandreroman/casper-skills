@@ -19,6 +19,17 @@ import tempfile
 
 CLEAR = [["progress", "clear"]]
 
+# A step the bar will never advance to again. "completed" is universal;
+# "cancelled" exists only in opencode's todo tool, and counting it as live
+# work is what used to strand the bar: a list whose remaining steps were all
+# cancelled had nothing in progress to relabel it with and nothing finished
+# enough to clear it, so the last label stood over work that had stopped.
+FINISHED = frozenset({"completed", "cancelled"})
+
+
+def _finished(tasks) -> int:
+    return sum(1 for t in tasks if t.get("status") in FINISHED)
+
 
 def nothing_in_flight(tasks) -> bool:
     """True when a task list describes no work the bar could honestly show.
@@ -28,7 +39,7 @@ def nothing_in_flight(tasks) -> bool:
     reconciliation, so the two can never disagree about what "done" means.
     """
     total = len(tasks)
-    return total == 0 or sum(1 for t in tasks if t.get("status") == "completed") == total
+    return total == 0 or _finished(tasks) == total
 
 
 def actions_for(tasks):
@@ -51,11 +62,10 @@ def actions_for(tasks):
         return None
 
     # casper reads --current as the 1-based index of the current task, so the
-    # in-progress one sits at completed + 1.
-    completed = sum(1 for t in tasks if t.get("status") == "completed")
+    # in-progress one sits just past everything the bar is done with.
     return [["progress", "set",
              "--total", str(len(tasks)),
-             "--current", str(completed + 1),
+             "--current", str(_finished(tasks) + 1),
              "--label", label]]
 
 
