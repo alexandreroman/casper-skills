@@ -68,6 +68,20 @@ class TestStop(unittest.TestCase):
             self.fire(stub)
             self.assertEqual(stub.calls, [DONE])
 
+    def test_a_finished_mirror_is_removed_with_its_lock(self):
+        # Left behind, the pair outlives every session that tracked a task.
+        self.mirror("s1", {"1": {"label": "a", "status": "completed"}})
+        open(os.path.join(self.data_dir, "s1.json.lock"), "w").close()
+        with CasperStub() as stub:
+            self.fire(stub)
+            self.assertEqual(sorted(os.listdir(self.data_dir)), [])
+
+    def test_an_in_flight_mirror_survives_the_turn(self):
+        self.mirror("s1", {"1": {"label": "a", "status": "in_progress"}})
+        with CasperStub() as stub:
+            self.fire(stub)
+            self.assertIn("s1.json", os.listdir(self.data_dir))
+
     def test_another_sessions_mirror_is_not_consulted(self):
         self.mirror("other", {"1": {"label": "a", "status": "in_progress"}})
         with CasperStub() as stub:

@@ -40,9 +40,6 @@ def actions_for(tasks):
     if nothing_in_flight(tasks):
         return CLEAR
 
-    total = len(tasks)
-    completed = sum(1 for t in tasks if t.get("status") == "completed")
-
     label = next(
         (t.get("label") for t in tasks
          if t.get("status") == "in_progress" and t.get("label")),
@@ -55,8 +52,9 @@ def actions_for(tasks):
 
     # casper reads --current as the 1-based index of the current task, so the
     # in-progress one sits at completed + 1.
+    completed = sum(1 for t in tasks if t.get("status") == "completed")
     return [["progress", "set",
-             "--total", str(total),
+             "--total", str(len(tasks)),
              "--current", str(completed + 1),
              "--label", label]]
 
@@ -66,10 +64,9 @@ def reconcile(tasks):
 
     Called where the agent is known not to be running (turn end). The bar
     claims "step N of M, right now"; with nothing in flight that claim is
-    false, so it must go — whoever set it, and whether or not the task hook
-    ever ran. That covers the bar left standing because `actions_for` found
-    no labelled task to show, and the one an agent with no task tool set by
-    hand through the CLI, neither of which any other path clears.
+    false, so it must go whoever set it — including the bar `actions_for`
+    left standing for want of a labelled task, and the one an agent with no
+    task tool drove by hand, neither of which any other path clears.
 
     A task genuinely still in flight keeps its bar, so a turn that ends
     waiting on the user still shows where the work stopped.
@@ -115,10 +112,24 @@ def save(path, state) -> None:
 def locked(path):
     """Hold an exclusive inter-process lock across a read-modify-write.
 
-    One hook process runs per tool call, so several race within a turn. The
-    .lock file is deliberately never unlinked: removing it would let one
-    process create a fresh inode while another still holds the old one.
+    One hook process runs per tool call, so several race within a turn.
+    Unlinking the .lock mid-turn would let one process create a fresh inode
+    while another still holds the old one, so only `discard` removes it — at
+    the turn boundary, where no tool call is in flight.
     """
     with open(path + ".lock", "w") as fd:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
+
+
+def discard(path) -> None:
+    """Delete a session's mirror and its lock. Safe only at a turn boundary.
+
+    Without this the pair outlives every session that ever tracked a task,
+    accumulating in the data directory for as long as it survives.
+    """
+    for target in (path, path + ".lock"):
+        try:
+            os.unlink(target)
+        except OSError:
+            pass

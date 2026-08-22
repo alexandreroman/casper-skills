@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 """Stop: end the turn — report done, and reconcile the progress bar.
 
-Report done explicitly. Every workspace this plugin drives is under Casper's
-explicit-authority latch from the very first `casper status set working` call
-onward (user-prompt-submit.sh / pre-tool-use.sh) — which permanently
-suppresses Casper's terminal-scraping detector for it, so detection can never
-derive "done" here on its own. Casper collapses this back to idle once the
-workspace is selected (seen).
+Done is reported explicitly because nothing else can derive it: the first
+`casper status set working` (user-prompt-submit.sh / pre-tool-use.sh) puts the
+workspace under Casper's explicit-authority latch, permanently suppressing its
+terminal-scraping detector. Casper collapses done back to idle once the
+workspace is seen.
 
-Then reconcile the bar against the session's task mirror. `status` and
-`progress` are two independent surfaces, and until this hook existed nothing
-kept them in agreement: a bar set during the turn survived every later turn
-until the session restarted, so a workspace could sit at done/idle while still
-advertising an in-flight step. The turn boundary is the one moment the agent
-is known not to be running, so it is where a bar that no longer describes live
-work has to go. See `hooks/lib/progress.py::reconcile` for what survives it.
+`status` and `progress` are independent surfaces, so the bar is reconciled
+here too. The turn boundary is the one moment the agent is known not to be
+running, which makes it both the only place a bar describing no live work can
+be dropped (see `progress.py::reconcile`) and the only place the task mirror
+can be deleted without racing a tool call.
 """
 import json
 import os
@@ -37,12 +34,18 @@ def main() -> None:
     try:
         path = progress.state_path(payload.get("session_id", "default"))
         tasks = list(progress.load(path).values())
+        actions = progress.reconcile(tasks)
+        # Nothing in flight means the mirror describes work that is over, and
+        # no tool call is running to race the unlink. Anything left here now
+        # would outlive the session.
+        if progress.nothing_in_flight(tasks):
+            progress.discard(path)
     except Exception:
         # An unusable state directory must not fail the turn; the status call
         # above already landed, which is the more important of the two.
         return
 
-    for args in progress.reconcile(tasks):
+    for args in actions:
         casper.run(args, timeout=1)
 
 

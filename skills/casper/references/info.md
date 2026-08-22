@@ -38,21 +38,11 @@ repo, a commit message, the conversation itself — and the panel then
 *shows* it. Publishing a decision, a finding, or a hand-off note **only**
 to the panel is how that information gets silently lost.
 
-In practice: keep the Markdown you published in a file (see below) and
-treat that file as the source of truth. Re-publishing after a restart is
-then one `casper info set --file` away; reconstructing a lost panel from
-memory is not.
-
 ## One message per workspace — `set` replaces
 
 There is no append, no history, no list of messages. `casper info set`
 **overwrites** whatever was there. To add to what's displayed, re-send the
 **whole** document with the new part included.
-
-So keep the document you published in a file (see below) for as long as
-the panel is live, and rewrite that file rather than trying to reconstruct
-the panel's content from memory. That copy is what makes both extending
-the message and restoring it after a restart cheap.
 
 ## When to publish
 
@@ -122,9 +112,10 @@ EOF
 casper info set --file "$info_file"
 ```
 
-Keep `$info_file` around while the panel is live, so extending the message
-— or restoring it after Casper restarts — is an edit plus one more
-`casper info set --file "$info_file"`.
+Keep `$info_file` around while the panel is live and treat it as the source
+of truth: extending the message — or restoring it after Casper restarts — is
+then an edit plus one more `casper info set --file "$info_file"`, rather than
+a reconstruction from memory.
 
 ## Writing the message
 
