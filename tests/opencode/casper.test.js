@@ -295,6 +295,27 @@ describe("progress mirror", () => {
     assert.equal(progressActions([{ content: "", status: "in_progress" }]), null)
   })
 
+  // "cancelled" is opencode's alone — no other agent's task tool has it — and
+  // it used to read as live work: a list whose remaining steps were all
+  // cancelled had nothing in progress to relabel the bar with and nothing
+  // finished enough to clear it, so the last label stood over stopped work.
+  test("a wholly cancelled list clears rather than stranding the bar", () => {
+    assert.deepEqual(progressActions([
+      { content: "a", status: "completed" },
+      { content: "b", status: "cancelled" },
+    ]), [["progress", "clear"]])
+    assert.deepEqual(progressActions([{ content: "a", status: "cancelled" }]),
+      [["progress", "clear"]])
+  })
+
+  test("a cancelled step is counted as passed, not pending", () => {
+    assert.deepEqual(progressActions([
+      { content: "a", status: "completed" },
+      { content: "b", status: "cancelled" },
+      { content: "c", status: "in_progress" },
+    ]), [["progress", "set", "--total", "3", "--current", "3", "--label", "c"]])
+  })
+
   test("a missing or non-array todos list is a no-op, not a throw", () => {
     assert.equal(progressActions(undefined), null)
     assert.equal(progressActions(null), null)
@@ -393,6 +414,19 @@ describe("turn-end reconciliation", () => {
   test("reconcileActions leaves an in-flight list alone", () => {
     assert.deepEqual(reconcileActions([{ content: "a", status: "in_progress" }]), [])
     assert.deepEqual(reconcileActions([{ content: "a", status: "pending" }]), [])
+  })
+
+  test("a turn that ends with every remaining step cancelled drops its bar", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+      { content: "a", status: "completed" },
+      { content: "b", status: "cancelled" },
+    ]}))
+    calls.length = 0
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("reconcileActions treats a non-array as nothing in flight, not a throw", () => {

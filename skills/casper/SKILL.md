@@ -47,10 +47,11 @@ casper status set blocked   # when you're waiting on them mid-turn
 
 ## Progress tracking
 
-If the harness exposes a plan, todo, or task tool, update that tool and never
-duplicate its updates with `casper progress`: the hook mirrors it to the
-sidebar without an extra permission prompt. Only when no such tool exists do
-you drive the bar yourself — read `references/progress.md` first.
+Check your tool list first: if it holds a plan, todo, or task tool, that
+tool *is* the progress bar — the hook mirrors it to the sidebar without an
+extra permission prompt, so a `casper progress` call of your own fights that
+mirror rather than adding to it. Only a harness with no such tool drives the
+bar by hand. Read `references/progress.md` first.
 
 ## Where to go next
 
