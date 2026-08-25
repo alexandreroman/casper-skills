@@ -173,23 +173,6 @@ refuses a bare plugin name and wants either `PLUGIN@MARKETPLACE` or
 > changes `hooks/hooks.json` sends them back for review — check `/hooks` again
 > after every update, not only the first install.
 
-Three more Codex specifics this repository relies on rather than works
-around, all verified against `codex-cli 0.149.0`:
-
-- **The manifest.** Codex's own manifest path is `.codex-plugin/plugin.json`,
-  and it falls back to `.claude-plugin/plugin.json` (then
-  `.cursor-plugin/plugin.json`). This repository ships only the Claude Code
-  one and Codex installs from it, so there is no second manifest to keep in
-  sync. `.claude-plugin/marketplace.json` is likewise a marketplace location
-  Codex reads.
-- **Component discovery.** `hooks/hooks.json` and `skills/` are found by
-  default discovery; the manifest's `hooks` and `skills` fields only
-  *supplement* it. Nothing Codex-shaped has to be declared for the hooks to
-  load — and the skill arrives namespaced as `casper:casper`.
-- **The `SessionEnd` budget.** Codex defaults that event to a 1-second timeout
-  and refuses more than 3, so the uniform `"timeout": 3` declared here is
-  already its ceiling — worth knowing before editing `hooks/hooks.json`.
-
 ### opencode
 
 opencode installs a plugin straight from a Git repository, so this one is
