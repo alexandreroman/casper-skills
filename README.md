@@ -1,5 +1,7 @@
 # Casper integration for coding agents
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 Wires Claude Code's, Codex's, and opencode's own hook/plugin lifecycle to the
 [`casper`](https://github.com/alexandreroman/casper) CLI, so a Casper
 workspace's sidebar state, progress bar, info panel, and notifications update
