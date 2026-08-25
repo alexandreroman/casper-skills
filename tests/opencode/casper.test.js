@@ -1,6 +1,13 @@
 import { test, describe, beforeEach } from "node:test"
 import assert from "node:assert/strict"
+import { existsSync, readFileSync } from "node:fs"
+import { join, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import plugin, { progressActions, reconcileActions } from "../../.opencode/plugin/casper.js"
+
+// The repository root, as a URL, so a manifest path like "./skills/" resolves
+// the same way the agents resolve it.
+const PLUGIN_ROOT = new URL("../../", import.meta.url)
 
 let calls
 const fakeClient = {
@@ -269,6 +276,51 @@ describe("guidance injection", () => {
     } finally {
       process.env.CASPER_WORKSPACE_ID = "test-ws"
     }
+  })
+})
+
+describe("skill registration", () => {
+  test("config hook registers the skill folder this plugin ships", async () => {
+    const h = await build()
+    const cfg = {}
+    await h.config(cfg)
+    assert.ok(cfg.skills?.paths?.length, "config hook registered no skill path")
+    assert.ok(cfg.skills.paths.every((p) => p.startsWith("/")),
+      "a skill path must be absolute")
+  })
+
+  test("the folder it registers really holds the casper skill", async () => {
+    // opencode reads `skills.paths` entries as folders *of* skill folders, so
+    // the thing that has to exist is <path>/casper/SKILL.md. Registering a
+    // path that resolves to nothing fails silently at runtime: the skill is
+    // simply never offered, which is the failure this pins.
+    const h = await build()
+    const cfg = {}
+    await h.config(cfg)
+    const registered = cfg.skills.paths.at(-1)
+    assert.ok(existsSync(join(registered, "casper", "SKILL.md")),
+      `no casper skill under ${registered}`)
+  })
+
+  test("it is the same folder the plugin manifests declare", async () => {
+    // Three agents, one skill folder. Claude Code and Codex get it from
+    // .claude-plugin/plugin.json; opencode gets it from the hook above, and
+    // the two must not drift apart.
+    const manifest = JSON.parse(
+      readFileSync(new URL("../../.claude-plugin/plugin.json", import.meta.url)))
+    const declared = fileURLToPath(new URL(manifest.skills, PLUGIN_ROOT))
+    const h = await build()
+    const cfg = {}
+    await h.config(cfg)
+    assert.equal(resolve(cfg.skills.paths.at(-1)), resolve(declared))
+  })
+
+  test("skill paths and other skill settings are preserved", async () => {
+    const h = await build()
+    const cfg = { skills: { paths: ["/existing/skills"], urls: ["https://example.com"] } }
+    await h.config(cfg)
+    assert.ok(cfg.skills.paths.includes("/existing/skills"))
+    assert.deepEqual(cfg.skills.urls, ["https://example.com"])
   })
 })
 

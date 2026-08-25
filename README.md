@@ -24,6 +24,7 @@ for, so that row is asymmetric the other way — see below.
 | blocked / notifications | `Notification` (type allowlist) | `PermissionRequest` | `permission.asked` |
 | progress bar | `PostToolUse` on `TaskCreate`\|`TaskUpdate` | `PostToolUse` on `update_plan` | `todo.updated` |
 | info panel & guidance injection | `SessionStart` stdout | `SessionStart` stdout | in-process `config` hook → `instructions[]` |
+| skill delivery | manifest `skills: "./skills/"` | the same manifest, or default discovery | in-process `config` hook → `skills.paths[]` |
 | error state | not supported | not supported | `session.error` → `status set error` |
 
 Each row lands on the same normalized action regardless of which agent fired
@@ -85,6 +86,31 @@ against a path it was told. That is the only reliable answer on an agent that
 loads plugins from `~/.config/opencode/plugin/`, a project directory, or an
 npm cache, and it is why that file's guidance is a sibling of the plugin
 rather than something written into the user's config.
+
+### How the skill reaches each agent
+
+`skills/casper/` ships inside the plugin on all three, but only two of them
+find it from a manifest: `.claude-plugin/plugin.json` declares
+`"skills": "./skills/"`, which Claude Code honours and Codex reads through the
+same manifest fallback — and Codex's default component discovery would find
+`skills/` even without the field.
+
+opencode has no manifest, and it never looks inside an installed plugin for
+skills. It reads a fixed set of folders — `.opencode/skills/`,
+`.claude/skills/`, `.agents/skills/` and their `~/`-level counterparts — plus
+whatever `skills.paths` in the config adds. A plugin's `config` hook is handed
+that config, so `.opencode/plugin/casper.js` appends its own `skills/` folder
+there, resolved from `import.meta.url` exactly like the guidance file. The
+skill then resolves as `casper` from inside the plugin, with nothing copied or
+symlinked into the user's config and no third-party skill installer in the
+loop.
+
+Verified on opencode 1.18.21: the skill is listed from the plugin's own
+directory — including when opencode installed the plugin from a Git repository,
+where it resolves inside `~/.cache/opencode/packages/`. A copy the user had
+already installed under the same name collapses to one entry rather than two,
+and outside a Casper workspace the hook registers nothing at all — the same
+no-op rule the rest of the plugin follows.
 
 | Reference | Covers |
 |---|---|
@@ -166,17 +192,37 @@ around, all verified against `codex-cli 0.149.0`:
 
 ### opencode
 
-Add `casper-skills` to the `plugin` array in `~/.config/opencode/opencode.json`:
+opencode installs a plugin straight from a Git repository, so this one is
+distributed exactly like the other two — from the repo, with no npm registry
+in the picture:
+
+```
+opencode plugin github:alexandreroman/casper-skills -g
+```
+
+`opencode plugin` is opencode's own installer: it clones the spec into
+`~/.cache/opencode/packages/`, reads `package.json` to find the plugin
+entrypoint, and writes the entry into the global config itself (drop `-g` to
+install into the project's config instead). By hand, the same thing is:
 
 ```json
 {
-  "plugin": ["casper-skills"]
+  "plugin": ["github:alexandreroman/casper-skills"]
 }
 ```
 
-opencode also auto-loads plugins dropped into `~/.config/opencode/plugin/`
-or a project's `plugins/` directory, if a local checkout is preferred over
-the packaged name.
+Any spec Bun understands works in that slot — `github:owner/repo`,
+`git+https://…`, `git+ssh://…` for a private clone, or a local path. It tracks
+the branch head, so a new commit is picked up the next time opencode starts.
+
+Either way the skill arrives with the plugin — there is nothing to symlink
+into `~/.config/opencode/skills/`, and no npm publication to wait on.
+
+opencode also auto-loads a plugin file dropped into `~/.config/opencode/plugin/`
+or a project's `.opencode/plugin/`, if a local checkout is preferred over the
+packaged name. Symlinking `casper.js` alone is enough: Node resolves the link
+to its real location, so the plugin still finds the `skills/` and
+`guidance.md` that sit next to the checkout it came from.
 
 ## Local development / testing
 
