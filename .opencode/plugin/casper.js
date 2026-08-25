@@ -31,6 +31,14 @@ export const CASPER_PLUGIN_VERSION = "0.2.0"
 // installed the plugin.
 const GUIDANCE_PATH = fileURLToPath(new URL("./guidance.md", import.meta.url))
 
+// The skill this plugin ships, resolved the same way and for the same reason.
+// Claude Code and Codex read `skills` out of the plugin manifest; opencode has
+// no manifest to read, and it never looks inside an installed plugin for
+// skills — it looks in a fixed set of folders, one of which the config hook
+// below can add. So the skill travels with the plugin here too, instead of
+// asking the user to symlink or copy it into their config.
+const SKILLS_DIR = fileURLToPath(new URL("../../skills", import.meta.url))
+
 const BLOCKED_EVENTS = new Set(["permission.asked", "permission.updated"])
 
 // Default runner: fire-and-forget, detached, every failure swallowed.
@@ -161,12 +169,20 @@ export function createHandlers({ client }) {
 
   return {
     async config(cfg) {
-      // Point opencode at the guidance file this plugin ships. Nothing is
-      // written: the file already exists inside the plugin's own directory,
-      // and the array is mutated in memory only.
+      // Point opencode at the guidance file and the skill folder this plugin
+      // ships. Nothing is written: both already exist inside the plugin's own
+      // directory, and cfg is mutated in memory only.
       if (!inWorkspace()) return
       try {
         cfg.instructions = [...(cfg.instructions ?? []), GUIDANCE_PATH]
+        // `skills.paths` names folders *of* skill folders, so this registers
+        // skills/casper as `casper`. A copy the user installed themselves
+        // resolves to the same name and opencode keeps one of them, so the
+        // two cannot pile up.
+        cfg.skills = {
+          ...(cfg.skills ?? {}),
+          paths: [...(cfg.skills?.paths ?? []), SKILLS_DIR],
+        }
       } catch {
         // Never let a malformed cfg object throw into opencode.
       }

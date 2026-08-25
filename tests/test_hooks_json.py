@@ -42,11 +42,13 @@ class TestHooksJson(unittest.TestCase):
                                 f"{event} command can fail a turn")
 
     def test_every_command_uses_the_portable_plugin_root(self):
-        # Codex exports CLAUDE_PLUGIN_ROOT for compatibility, so one variable
-        # serves both agents.
+        # Claude Code exports CLAUDE_PLUGIN_ROOT; Codex's own name is
+        # PLUGIN_ROOT and CLAUDE_PLUGIN_ROOT is only its compatibility mirror.
+        # Both agents expand the command through a shell, so one `:-` fallback
+        # covers them without a per-agent hooks file.
         for event in HOOKS:
             for cmd in commands(event):
-                self.assertIn("${CLAUDE_PLUGIN_ROOT}", cmd)
+                self.assertIn("${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}", cmd)
 
     def test_every_hook_declares_a_timeout(self):
         for event in HOOKS:

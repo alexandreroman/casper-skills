@@ -5,9 +5,26 @@ from harness import CasperStub
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(ROOT, "hooks", "session-start.py")
 
+SKILL = "skills/casper/SKILL.md"
+
 def run_hook(stub, payload, **env):
     return subprocess.run(
         [HOOK], input=json.dumps(payload), env=stub.env(**env),
+        capture_output=True, text=True, cwd=ROOT,
+    )
+
+def run_hook_rootless(stub, **root_env):
+    """Run the hook with both agents' plugin-root variables cleared first.
+
+    The test process inherits whichever one its own harness exported, so the
+    fallback can only be exercised from a known-empty starting point.
+    """
+    env = stub.env()
+    for var in ("CLAUDE_PLUGIN_ROOT", "PLUGIN_ROOT"):
+        env.pop(var, None)
+    env.update(root_env)
+    return subprocess.run(
+        [HOOK], input=json.dumps({"source": "startup"}), env=env,
         capture_output=True, text=True, cwd=ROOT,
     )
 
@@ -51,6 +68,23 @@ class TestSessionStart(unittest.TestCase):
             proc = run_hook(stub, {"source": "startup"})
             self.assertIn("casper --help", proc.stdout)
             self.assertIn("before your first `casper` command", proc.stdout)
+
+    def test_claude_codes_plugin_root_resolves_the_skill_path(self):
+        with CasperStub() as stub:
+            proc = run_hook_rootless(stub, CLAUDE_PLUGIN_ROOT="/plugins/casper")
+            self.assertIn("/plugins/casper/" + SKILL, proc.stdout)
+
+    def test_codexs_own_plugin_root_resolves_the_skill_path(self):
+        # Codex's native name is PLUGIN_ROOT; CLAUDE_PLUGIN_ROOT is only its
+        # compatibility mirror, so the guidance must not depend on the mirror.
+        with CasperStub() as stub:
+            proc = run_hook_rootless(stub, PLUGIN_ROOT="/plugins/casper")
+            self.assertIn("/plugins/casper/" + SKILL, proc.stdout)
+
+    def test_no_plugin_root_still_names_the_skill(self):
+        with CasperStub() as stub:
+            proc = run_hook_rootless(stub)
+            self.assertIn(SKILL, proc.stdout)
 
     def test_malformed_stdin_is_survivable(self):
         with CasperStub() as stub:

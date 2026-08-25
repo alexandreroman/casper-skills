@@ -20,6 +20,13 @@ from hooks.lib import guidance
 CONTINUING = {"resume", "compact"}
 
 
+def plugin_root() -> str:
+    """Where this plugin is installed, under either agent's name for it."""
+    return (os.environ.get("CLAUDE_PLUGIN_ROOT")
+            or os.environ.get("PLUGIN_ROOT")
+            or "")
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -31,11 +38,13 @@ def main() -> None:
     # stalled or slow `casper` call must not cost the session its whole
     # context injection, which is the more important of the two effects.
     #
-    # Both agents export CLAUDE_PLUGIN_ROOT, so the skill's path lands in the
-    # guidance absolute: this is the one moment where where-the-plugin-lives
-    # is known, and spending it turns "find the casper skill" into one file
-    # read with nothing to resolve.
-    sys.stdout.write(guidance.render(os.environ.get("CLAUDE_PLUGIN_ROOT", "")))
+    # The skill's path lands in the guidance absolute: this is the one moment
+    # where where-the-plugin-lives is known, and spending it turns "find the
+    # casper skill" into one file read with nothing to resolve. Codex's own
+    # name for the variable is PLUGIN_ROOT and it exports CLAUDE_PLUGIN_ROOT
+    # only as a compatibility mirror, so the native name is the fallback
+    # rather than a second thing to keep in sync.
+    sys.stdout.write(guidance.render(plugin_root()))
 
     casper.run(["status", "set", "idle"], timeout=1)
     casper.run(["progress", "clear"], timeout=1)

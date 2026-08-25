@@ -6,76 +6,6 @@ workspace's sidebar state, progress bar, info panel, and notifications update
 automatically while the agent works — no changes to Casper itself required,
 and no changes to the agent's own configuration or the user's project either.
 
-## What it does
-
-Every Casper surface Claude Code and Codex expose is available on opencode
-too: the three agents expose the same lifecycle through different
-mechanisms, and this plugin normalizes the difference away. opencode also
-reports an `error` state neither Claude Code nor Codex has a counterpart
-for, so that row is asymmetric the other way — see below.
-
-| Casper surface | Claude Code | Codex | opencode |
-|---|---|---|---|
-| session start | `SessionStart` | `SessionStart` | `session.created` (root session only) |
-| turn start | `UserPromptSubmit` | `UserPromptSubmit` | `session.status` → `busy` |
-| tool activity | `PreToolUse` | `PreToolUse` | `tool.execute.before` |
-| turn end | `Stop` | `Stop` | `session.status` → `idle`, `session.idle` |
-| session end | `SessionEnd` | `SessionEnd` | `session.deleted` |
-| blocked / notifications | `Notification` (type allowlist) | `PermissionRequest` | `permission.asked` |
-| progress bar | `PostToolUse` on `TaskCreate`\|`TaskUpdate` | `PostToolUse` on `update_plan` | `todo.updated` |
-| info panel & guidance injection | `SessionStart` stdout | `SessionStart` stdout | in-process `config` hook → `instructions[]` |
-| error state | not supported | not supported | `session.error` → `status set error` |
-
-Each row lands on the same normalized action regardless of which agent fired
-it:
-
-| Normalized event | Casper action |
-|---|---|
-| session start | `status set idle` + `progress clear`, plus `info clear` for a genuinely new session (skipped on resume/compact, which continue an existing one) |
-| turn start | `status set working` |
-| tool activity | `status set working` (holds the explicit-authority latch for the whole turn, so turn end can safely report `done`) |
-| turn end | `status set done`, plus `progress clear` unless the agent's task list still shows a step in flight — the bar must not outlive the turn that set it |
-| session end | `status set done` |
-| blocked | `status set blocked` + `notify --message "..."` |
-| tasks changed | mirrors the agent's task/plan/todo list into `progress set`/`progress clear` |
-
-One skill covers the judgment calls no hook can infer automatically — either
-by reaching for the `casper` CLI directly or by nudging the agent into
-behaviour the hooks then pick up. `skills/casper/SKILL.md` is a plain
-`SKILL.md`, read natively by all three agents, and it is deliberately small:
-the guard rule, the rule for telling the user when you need them, and a
-routing table. The per-surface detail sits in reference files the agent loads
-only when that surface is in play.
-
-The session guidance injected at `SessionStart` is what gets that skill
-loaded, and it is the only component that both runs in every session and knows
-for a fact that the session is in a Casper terminal. It names the skill **by
-path**, resolved absolutely from `CLAUDE_PLUGIN_ROOT` where the agent exports
-one: "read the casper skill" asks the agent to resolve something, and an agent
-that does not bother is precisely the failure being designed against. A path
-is one file read with nothing to resolve. Description matching is the second
-line, not the first — which is why the skill's `description` is written in the
-vocabulary of a request ("close, merge, create, delete a workspace or its Git
-worktree", "screenshot", "diff view") rather than of this plugin, and why
-`tests/test_casper_skill_entry.sh` pins that vocabulary against the routing
-table so a new surface cannot be added unfindable.
-
-| Reference | Covers |
-|---|---|
-| `references/status.md` | `casper status set blocked` / `error` for agent states no hook can detect. |
-| `references/progress.md` | Tracking a multi-step, non-immediate activity with the agent's own task-tracking tool, so the progress hook keeps the sidebar bar in sync — and driving `casper progress` by hand on a harness that exposes no such tool. |
-| `references/info.md` | Publishing, replacing, or clearing the workspace's info panel: one Markdown message per workspace, for a plan, a summary, findings, or the handles of something left running. In-memory only — it displays information, it never stores it. |
-| `references/browser.md` | Opening a URL in Casper's browser panel, driving the page (screenshot, console, DOM, clicks, waits), and closing the panel. |
-| `references/diff.md` | Opening Casper's diff view, in full or for one file, and closing it. |
-| `references/terminal.md` | Opening, listing, and closing terminals in the workspace, on explicit request and on the agent's own judgment when a command should run somewhere visible or interactive. |
-| `references/workspace.md` | Listing workspaces or resolving the current one anytime; creating, deleting, or closing/merging one (Git worktree) only on explicit request. |
-| `references/handoff.md` | Handing the current in-progress session to a fresh workspace so a new agent instance continues this session's work with no loss of information (WIP commit + a self-contained handoff document). |
-| `references/repo-config.md` | Generating or updating a repo's `.casper.json` (the files copied into new workspaces and the named `workspace.scripts`, including the reserved setup/teardown hooks); authoring works in any Git repo. |
-
-Every hook and the opencode plugin are a no-op outside a Casper terminal —
-they check for `$CASPER_WORKSPACE_ID` before doing anything, and never block
-or fail a turn even if Casper isn't running.
-
 ## Requirements
 
 - [Casper](https://github.com/alexandreroman/casper) — the `casper` CLI is
@@ -103,7 +33,7 @@ This repository self-hosts a plugin marketplace:
 
 ```
 codex plugin marketplace add alexandreroman/casper-skills
-codex plugin add casper
+codex plugin add casper@casper
 ```
 
 > [!IMPORTANT]
@@ -112,20 +42,74 @@ codex plugin add casper
 > they are trusted, the integration is installed but **completely inert**: no
 > sidebar updates, no progress bar, no notifications. This is the single most
 > likely reason the integration will look broken on Codex, so do not skip it.
+> Trust is recorded against each hook's current hash, so an upgrade that
+> changes a hook sends it back for review — check `/hooks` again after every
+> update, not only the first install.
 
 ### opencode
 
-Add `casper-skills` to the `plugin` array in `~/.config/opencode/opencode.json`:
+opencode installs a plugin straight from a Git repository, so this one is
+distributed exactly like the other two — no npm registry in the picture:
+
+```
+opencode plugin github:alexandreroman/casper-skills -g
+```
+
+That is opencode's own installer: it fetches the repository and writes the
+config entry itself (drop `-g` to install into the project's config instead).
+By hand, the same thing is:
 
 ```json
 {
-  "plugin": ["casper-skills"]
+  "plugin": ["github:alexandreroman/casper-skills"]
 }
 ```
 
-opencode also auto-loads plugins dropped into `~/.config/opencode/plugin/`
-or a project's `plugins/` directory, if a local checkout is preferred over
-the packaged name.
+Any Git spec works in that slot — `github:owner/repo`, `git+https://…`,
+`git+ssh://…` for a private clone, or a local path — and it tracks the branch
+head, so a new commit is picked up the next time opencode starts. The skill
+arrives with the plugin; there is nothing to install alongside it.
+
+## What it does
+
+Once it is installed there is nothing to run by hand. The agent's own
+lifecycle drives the workspace:
+
+| What the workspace shows | When |
+|---|---|
+| sidebar **working** | the turn starts, and again on every tool call |
+| sidebar **done** | the turn ends, or the session does |
+| sidebar **blocked**, plus a notification | the agent needs a decision, a credential, a login or an approval from you |
+| progress bar | the agent's own task, plan or todo list, mirrored step by step and cleared when the work is over |
+| state, bar and info panel reset | a new session starts — a resume or a compact keeps the info panel, since that work is still the same |
+| sidebar **error** | opencode only; neither Claude Code nor Codex reports a state that means this |
+
+Apart from that last row the three agents behave identically.
+
+Outside a Casper terminal the integration does nothing at all, and it never
+blocks or fails a turn even when Casper isn't running.
+
+## What the agent can do with it
+
+The rest is judgment no hook can infer, so it ships as a skill — `casper` —
+that every session in a Casper workspace is pointed at, and that the agent
+loads when a request calls for it:
+
+- tell you it is **blocked** and notify you, instead of ending a turn quietly
+  waiting on an answer
+- keep the **progress bar** honest on multi-step work
+- publish a plan, findings, or a summary in the **info panel**
+- open a URL in the **browser panel**, screenshot it, click or type on the
+  page, read its console
+- open or close the **diff view**, in full or for one file
+- open, list, or close extra **terminals**
+- list, create, delete, or close/merge **workspaces** and their Git worktrees
+- **hand this session off** to a fresh workspace, so another agent instance
+  picks the work up with nothing lost
+- write a repository's **`.casper.json`**
+
+Each surface has its own reference that the agent reads only when that surface
+is in play, so a session loads what it needs and no more.
 
 ## Local development / testing
 
@@ -137,9 +121,25 @@ claude --plugin-dir /path/to/casper-skills
 ```
 
 loads this plugin for that session only. Run it from inside a Casper
-workspace terminal to see the hooks fire for real. Codex accepts an
-equivalent local flag; opencode picks up a checkout dropped into
-`~/.config/opencode/plugin/` or `plugins/`.
+workspace terminal to see the hooks fire for real.
+
+Codex has no such flag. Point a marketplace at the checkout instead, and
+reinstall after each edit — the install snapshots the source into
+`$CODEX_HOME/plugins/cache/`, so a running session never sees a change and a
+new session only sees the last install:
+
+```bash
+codex plugin marketplace add /path/to/casper-skills
+codex plugin add casper@casper   # again after every edit; it does refresh
+                                 # the cache at an unchanged version
+```
+
+`codex exec --dangerously-bypass-hook-trust` skips the `/hooks` trust prompt
+for one non-interactive run, which is what makes this loop bearable.
+
+opencode picks up a plugin file dropped into `~/.config/opencode/plugin/` or a
+project's `.opencode/plugin/`; a symlink to the checkout is enough, and it
+brings its skill with it.
 
 ## Running the tests
 
@@ -152,30 +152,6 @@ node --test 'tests/opencode/*.test.js'
 
 Use the quoted glob form for the opencode tests, not a bare directory —
 `node --test tests/opencode` reports a phantom failure on Node 24.
-
-`tests/test_cli_surface.py` is the one test that talks to the real `casper`
-CLI, because the failure it exists for cannot be caught any other way: a
-reference that understates the CLI reads as a complete description, so an
-agent believes the part that is missing does not exist. It pins what
-`references/workspace.md` claims — its synopses, the subcommands it documents,
-the ones it says do not exist — against `casper help`. It skips itself when
-`casper` is not on `PATH`, so run the suite from inside a Casper terminal to
-get its coverage.
-
-## Porting to a new agent
-
-Fit the new agent into the shape above rather than inventing a new one.
-`hooks/lib/casper.py::EVENT_ACTIONS` is the single source of truth for the
-events whose mapping is a fixed constant; the payload-dependent ones
-(session start, blocked, tasks changed) are computed by each entry point, and
-`tests/test_cross_agent_conformance.sh` is what keeps every agent's argv
-identical. A new agent's integration is not done until a test pins its
-mapping by reading those tables at test time rather than copying them.
-
-Two rules beyond that: the integration never writes into the user's config or
-project — installation is always the target agent's own installer — and a
-capability the new agent lacks is recorded as "not supported" in the matrix
-above, never approximated with a heuristic that will misfire.
 
 ## License
 
