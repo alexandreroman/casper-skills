@@ -6,6 +6,85 @@ workspace's sidebar state, progress bar, info panel, and notifications update
 automatically while the agent works — no changes to Casper itself required,
 and no changes to the agent's own configuration or the user's project either.
 
+## Requirements
+
+- [Casper](https://github.com/alexandreroman/casper) — the `casper` CLI is
+  only reachable inside a terminal Casper opened.
+- `python3` (ships with Xcode Command Line Tools) — needed by the Claude Code
+  and Codex hooks.
+- Node — needed by the opencode plugin; opencode itself ships with a Node
+  runtime, so nothing extra to install there.
+
+## Installation
+
+Each agent installs the integration through its own installer. None of them
+writes into another agent's configuration or into a user's project.
+
+### Claude Code
+
+This repository self-hosts a plugin marketplace:
+
+```
+/plugin marketplace add alexandreroman/casper-skills
+/plugin install casper@casper
+```
+
+### Codex
+
+```
+codex plugin marketplace add alexandreroman/casper-skills
+codex plugin add casper@casper
+```
+
+The `@casper` suffix is the marketplace, not decoration: `codex plugin add`
+refuses a bare plugin name and wants either `PLUGIN@MARKETPLACE` or
+`--marketplace`. Both names come out `casper` here — the plugin's, and the one
+`.claude-plugin/marketplace.json` declares.
+
+> [!IMPORTANT]
+> Codex hashes every non-managed command hook. After installing, open the
+> Codex TUI and run `/hooks` to review and trust this plugin's hooks — until
+> they are trusted, the integration is installed but **completely inert**: no
+> sidebar updates, no progress bar, no notifications. This is the single most
+> likely reason the integration will look broken on Codex, so do not skip it.
+> Trust is recorded against each hook's current hash, so an upgrade that
+> changes `hooks/hooks.json` sends them back for review — check `/hooks` again
+> after every update, not only the first install.
+
+### opencode
+
+opencode installs a plugin straight from a Git repository, so this one is
+distributed exactly like the other two — from the repo, with no npm registry
+in the picture:
+
+```
+opencode plugin github:alexandreroman/casper-skills -g
+```
+
+`opencode plugin` is opencode's own installer: it clones the spec into
+`~/.cache/opencode/packages/`, reads `package.json` to find the plugin
+entrypoint, and writes the entry into the global config itself (drop `-g` to
+install into the project's config instead). By hand, the same thing is:
+
+```json
+{
+  "plugin": ["github:alexandreroman/casper-skills"]
+}
+```
+
+Any spec Bun understands works in that slot — `github:owner/repo`,
+`git+https://…`, `git+ssh://…` for a private clone, or a local path. It tracks
+the branch head, so a new commit is picked up the next time opencode starts.
+
+Either way the skill arrives with the plugin — there is nothing to symlink
+into `~/.config/opencode/skills/`, and no npm publication to wait on.
+
+opencode also auto-loads a plugin file dropped into `~/.config/opencode/plugin/`
+or a project's `.opencode/plugin/`, if a local checkout is preferred over the
+packaged name. Symlinking `casper.js` alone is enough: Node resolves the link
+to its real location, so the plugin still finds the `skills/` and
+`guidance.md` that sit next to the checkout it came from.
+
 ## What it does
 
 Every Casper surface Claude Code and Codex expose is available on opencode
@@ -127,85 +206,6 @@ no-op rule the rest of the plugin follows.
 Every hook and the opencode plugin are a no-op outside a Casper terminal —
 they check for `$CASPER_WORKSPACE_ID` before doing anything, and never block
 or fail a turn even if Casper isn't running.
-
-## Requirements
-
-- [Casper](https://github.com/alexandreroman/casper) — the `casper` CLI is
-  only reachable inside a terminal Casper opened.
-- `python3` (ships with Xcode Command Line Tools) — needed by the Claude Code
-  and Codex hooks.
-- Node — needed by the opencode plugin; opencode itself ships with a Node
-  runtime, so nothing extra to install there.
-
-## Installation
-
-Each agent installs the integration through its own installer. None of them
-writes into another agent's configuration or into a user's project.
-
-### Claude Code
-
-This repository self-hosts a plugin marketplace:
-
-```
-/plugin marketplace add alexandreroman/casper-skills
-/plugin install casper@casper
-```
-
-### Codex
-
-```
-codex plugin marketplace add alexandreroman/casper-skills
-codex plugin add casper@casper
-```
-
-The `@casper` suffix is the marketplace, not decoration: `codex plugin add`
-refuses a bare plugin name and wants either `PLUGIN@MARKETPLACE` or
-`--marketplace`. Both names come out `casper` here — the plugin's, and the one
-`.claude-plugin/marketplace.json` declares.
-
-> [!IMPORTANT]
-> Codex hashes every non-managed command hook. After installing, open the
-> Codex TUI and run `/hooks` to review and trust this plugin's hooks — until
-> they are trusted, the integration is installed but **completely inert**: no
-> sidebar updates, no progress bar, no notifications. This is the single most
-> likely reason the integration will look broken on Codex, so do not skip it.
-> Trust is recorded against each hook's current hash, so an upgrade that
-> changes `hooks/hooks.json` sends them back for review — check `/hooks` again
-> after every update, not only the first install.
-
-### opencode
-
-opencode installs a plugin straight from a Git repository, so this one is
-distributed exactly like the other two — from the repo, with no npm registry
-in the picture:
-
-```
-opencode plugin github:alexandreroman/casper-skills -g
-```
-
-`opencode plugin` is opencode's own installer: it clones the spec into
-`~/.cache/opencode/packages/`, reads `package.json` to find the plugin
-entrypoint, and writes the entry into the global config itself (drop `-g` to
-install into the project's config instead). By hand, the same thing is:
-
-```json
-{
-  "plugin": ["github:alexandreroman/casper-skills"]
-}
-```
-
-Any spec Bun understands works in that slot — `github:owner/repo`,
-`git+https://…`, `git+ssh://…` for a private clone, or a local path. It tracks
-the branch head, so a new commit is picked up the next time opencode starts.
-
-Either way the skill arrives with the plugin — there is nothing to symlink
-into `~/.config/opencode/skills/`, and no npm publication to wait on.
-
-opencode also auto-loads a plugin file dropped into `~/.config/opencode/plugin/`
-or a project's `.opencode/plugin/`, if a local checkout is preferred over the
-packaged name. Symlinking `casper.js` alone is enough: Node resolves the link
-to its real location, so the plugin still finds the `skills/` and
-`guidance.md` that sit next to the checkout it came from.
 
 ## Local development / testing
 
