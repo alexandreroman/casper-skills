@@ -17,7 +17,10 @@ ENTRY="$DIR/skills/casper/SKILL.md"
 [ -f "$ENTRY" ] || fail "missing skills/casper/SKILL.md"
 grep -q "^name: casper\$" "$ENTRY" || fail "frontmatter name must match the directory"
 grep -q "^description: " "$ENTRY" || fail "missing description"
-grep -q "^user-invocable:" "$ENTRY" && fail "user-invocable is Claude-only"
+# The skill is model-facing only: an agent loads it when a Casper surface is
+# involved, and a user typing /casper would get a routing table, not an action.
+# The key is Claude-only; the other agents ignore an unknown frontmatter key.
+grep -q "^user-invocable: false\$" "$ENTRY" || fail "the entry skill must set user-invocable: false"
 
 # Tool names belonging to one agent only.
 for file in "$ENTRY" "$DIR"/skills/casper/references/*.md; do

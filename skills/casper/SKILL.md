@@ -2,6 +2,7 @@
 name: casper
 description: Read this at the start of any session where CASPER_WORKSPACE_ID is set — the session is running in a Casper terminal workspace — and before the first `casper` command, whatever it is for. Triggers include: close, merge, create, delete, or list a workspace or its Git worktree; hand this session off to a fresh workspace; tell the user you are blocked, or that you need a decision, a credential, a login, or an approval, and notify them; keep the sidebar progress bar in step with multi-step work; publish a plan, findings, or a summary in the workspace info panel; open an extra terminal; open a URL in the browser panel, screenshot it, click or type on the page, read its console; open or close the diff view; write a repository's .casper.json.
 allowed-tools: AskUserQuestion Read Write Edit Glob Grep Bash([ -n "$CASPER_WORKSPACE_ID" ]) Bash(casper *) Bash(git rev-parse *) Bash(git status --porcelain*) Bash(git -C * status --porcelain*) Bash(git worktree list) Bash(git branch*) Bash(git log *) Bash(git add *) Bash(git commit *) Bash(git rebase *) Bash(git merge *) Bash(mktemp *) Bash(mv *)
+user-invocable: false
 ---
 
 # Casper
