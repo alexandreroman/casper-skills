@@ -2,9 +2,13 @@
 
 The bar and the sidebar status are independent surfaces. Before this hook
 touched progress, nothing but a session restart brought them back into
-agreement, so a bar set during a turn kept advertising an in-flight step for
-every later turn — including one set by hand through the CLI by an agent whose
-harness exposes no task tool, which the task hook never sees at all.
+agreement, so a bar set during a turn kept advertising a step of a task list
+that had finished for every later turn.
+
+It reconciles against the session's task mirror and nothing else. A bar with
+no mirror behind it was driven by hand, by an agent whose harness exposes no
+task tool, and survives the turn on purpose: the work it describes routinely
+outlives a turn boundary. `hooks/session-end.sh` clears that one.
 """
 import json, os, subprocess, sys, tempfile, unittest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
@@ -38,12 +42,15 @@ class TestStop(unittest.TestCase):
             self.fire(stub)
             self.assertEqual(stub.calls[0], DONE)
 
-    def test_no_task_state_at_all_clears_a_bar_nothing_else_would(self):
+    def test_a_hand_driven_bar_is_not_cleared_at_turn_end(self):
         # The reported bug: an agent with no task tool drove `casper progress
         # set` by hand, so there is no mirror and the task hook never ran.
+        # Clearing here wiped the bar seconds after it was set — the agent had
+        # ended its turn to let background work run, and nothing was left
+        # running that could put the bar back.
         with CasperStub() as stub:
             self.fire(stub)
-            self.assertEqual(stub.calls, [DONE, CLEAR])
+            self.assertEqual(stub.calls, [DONE])
 
     def test_finished_task_list_clears(self):
         self.mirror("s1", {"1": {"label": "a", "status": "completed"}})
@@ -83,17 +90,23 @@ class TestStop(unittest.TestCase):
             self.assertIn("s1.json", os.listdir(self.data_dir))
 
     def test_another_sessions_mirror_is_not_consulted(self):
+        # Another session's in-flight task must not keep this session's bar,
+        # and must not clear it either: with no mirror of its own this session
+        # is the hand-driven case, whose bar is left alone.
         self.mirror("other", {"1": {"label": "a", "status": "in_progress"}})
         with CasperStub() as stub:
             self.fire(stub, session_id="s1")
-            self.assertEqual(stub.calls, [DONE, CLEAR])
+            self.assertEqual(stub.calls, [DONE])
+            self.assertIn("other.json", os.listdir(self.data_dir))
 
     def test_corrupt_mirror_still_reports_done(self):
+        # A corrupt mirror reads as empty, which is the hand-driven case: the
+        # turn is reported over and the bar is left for session end.
         with open(os.path.join(self.data_dir, "s1.json"), "w") as f:
             f.write("{not json")
         with CasperStub() as stub:
             self.fire(stub)
-            self.assertEqual(stub.calls, [DONE, CLEAR])
+            self.assertEqual(stub.calls, [DONE])
 
     def test_missing_stdin_payload_is_survivable(self):
         with CasperStub() as stub:

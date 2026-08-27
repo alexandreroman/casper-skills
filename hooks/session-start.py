@@ -14,9 +14,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from hooks.lib import casper
 from hooks.lib import guidance
 
-# `resume` and `compact` continue an existing session, so the info panel still
-# describes work this session knows about. Any other source is a fresh
-# conversation, whose panel would describe work it knows nothing about.
+# `resume` and `compact` continue an existing session, so its info panel and
+# its progress bar both still describe work this session knows about — an
+# auto-compaction fires mid-task, and wiping the bar there would lose the one
+# thing the sidebar had to say about work that is still running. Any other
+# source is a fresh conversation, whose panel and bar would describe work it
+# knows nothing about.
 CONTINUING = {"resume", "compact"}
 
 
@@ -47,8 +50,8 @@ def main() -> None:
     sys.stdout.write(guidance.render(plugin_root()))
 
     casper.run(["status", "set", "idle"], timeout=1)
-    casper.run(["progress", "clear"], timeout=1)
     if payload.get("source") not in CONTINUING:
+        casper.run(["progress", "clear"], timeout=1)
         casper.run(["info", "clear"], timeout=1)
 
 

@@ -73,21 +73,29 @@ of steps, `--label` what that step is doing.
 
 Two rules make hand-driving safe:
 
-- **Clear it as soon as the work is done**, in the same turn. Nothing else
-  knows your work finished.
-- **Re-set it each turn** if the work spans several. A hand-driven bar does
-  not survive the end of a turn (below), and re-setting it is one command.
+- **Clear it as soon as the work is done**, in the turn that finishes it.
+  Nothing else knows your work finished. A hand-driven bar stands until you
+  clear it or the session ends — it outlives a turn boundary on purpose
+  (below) — so this one rule is the whole of what keeps it honest.
+- **Move it as each step begins**, with the same command and a new
+  `--current` and `--label`. Set once and never touched, it describes step
+  one for the whole of the work.
 
 ## When the bar clears
 
 - **Every step finished**, on the task-tool path — completed or cancelled, the
   mirror clears the bar the moment the last live step is gone.
-- **The end of every turn**, unless your task tool still shows a step in
-  flight. Between turns the agent is not running, so a bar describing a step
-  "in progress" would be false; the turn-end hook consults the same task state
-  the mirror maintains and drops the bar when nothing is live. A step
-  genuinely still in flight keeps its bar, so a turn that ends waiting on the
-  user still shows where the work stopped. With no task state to consult — the
-  hand-driven case — there is nothing to distinguish live work from stale, so
-  the bar goes.
-- **Session start**, along with the rest of the workspace surfaces.
+- **The end of a turn whose task tool shows no step in flight.** The turn-end
+  hook consults the same task state the mirror maintains and drops the bar
+  when nothing in it is live. A step genuinely still in flight keeps its bar,
+  so a turn that ends waiting on the user still shows where the work stopped.
+  A hand-driven bar has no task state behind it, so the hook leaves it exactly
+  as it is — it survives the turn boundary for the same reason an in-flight
+  step does. Work outlives turns routinely: subagents dispatched to run in the
+  background, a turn ended to put a question to the user. The sidebar is not
+  lying about activity in the meantime, because the agent-state icon reports
+  done or idle independently of the bar.
+- **Session end**, whatever set the bar. The backstop for the hand-driven one
+  the agent never got around to clearing.
+- **Session start**, along with the rest of the workspace surfaces — though a
+  resume or a compact keeps the bar, since that work is still the same.

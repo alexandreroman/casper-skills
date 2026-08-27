@@ -43,18 +43,26 @@ class TestSessionStart(unittest.TestCase):
             run_hook(stub, {"source": "clear"})
             self.assertIn(["info", "clear"], stub.calls)
 
-    def test_resume_keeps_the_info_panel(self):
+    def test_resume_keeps_the_bar_and_the_info_panel(self):
+        # A resume continues work this session already knows about, so the
+        # only thing reset is the state the new process cannot vouch for.
         with CasperStub() as stub:
             run_hook(stub, {"source": "resume"})
-            self.assertEqual(stub.calls, [
-                ["status", "set", "idle"],
-                ["progress", "clear"],
-            ])
+            self.assertEqual(stub.calls, [["status", "set", "idle"]])
 
-    def test_compact_keeps_the_info_panel(self):
+    def test_compact_keeps_the_bar_and_the_info_panel(self):
+        # An auto-compaction fires mid-task. Clearing the bar here dropped the
+        # sidebar's only account of work that was still running.
         with CasperStub() as stub:
             run_hook(stub, {"source": "compact"})
-            self.assertNotIn(["info", "clear"], stub.calls)
+            self.assertEqual(stub.calls, [["status", "set", "idle"]])
+
+    def test_a_fresh_start_still_clears_the_bar(self):
+        # Nothing else would: a bar from the previous session in this
+        # workspace describes work this one knows nothing about.
+        with CasperStub() as stub:
+            run_hook(stub, {"source": "clear"})
+            self.assertIn(["progress", "clear"], stub.calls)
 
     def test_prints_the_guidance(self):
         with CasperStub() as stub:

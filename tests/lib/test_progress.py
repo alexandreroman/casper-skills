@@ -77,12 +77,14 @@ class TestNothingInFlight(unittest.TestCase):
 
 
 class TestReconcile(unittest.TestCase):
-    """The turn-end mapping: drop a bar that no longer describes live work."""
+    """The turn-end mapping: drop a bar the task list says the work is over."""
 
-    def test_no_tasks_clears(self):
-        # An agent with no task tool drove `casper progress set` by hand, so
-        # there is no task state and nothing else would ever clear the bar.
-        self.assertEqual(progress.reconcile([]), progress.CLEAR)
+    def test_no_tasks_at_all_leaves_the_bar_alone(self):
+        # No task tool ever reported anything, so this is the agent that has
+        # none and drove `casper progress set` by hand. Its bar is meant to
+        # survive the turn — background work outlives a turn boundary — and
+        # session end is what clears it if the agent never does.
+        self.assertEqual(progress.reconcile([]), [])
 
     def test_all_completed_clears(self):
         self.assertEqual(
@@ -93,11 +95,13 @@ class TestReconcile(unittest.TestCase):
         self.assertEqual(
             progress.reconcile([{"label": "a", "status": "in_progress"}]), [])
 
-    def test_agrees_with_actions_for_on_when_there_is_nothing_to_show(self):
-        # The two mappings share one predicate precisely so they cannot
-        # disagree about what "nothing to show" means.
-        for tasks in ([],
-                      [{"label": "a", "status": "completed"}],
+    def test_clears_only_where_a_task_list_says_the_work_is_over(self):
+        # The two mappings share `nothing_in_flight`, so they agree about what
+        # "done" means — for every list that has tasks in it. They part on the
+        # empty one: `actions_for` only ever runs where a task tool reported
+        # something, so an empty list there is a list that emptied out, while
+        # at the turn boundary it is a task tool that never spoke at all.
+        for tasks in ([{"label": "a", "status": "completed"}],
                       [{"label": "a", "status": "in_progress"}],
                       [{"label": "", "status": "in_progress"}],
                       [{"label": "a", "status": "pending"}],
@@ -109,6 +113,13 @@ class TestReconcile(unittest.TestCase):
             cleared = progress.actions_for(tasks) == progress.CLEAR
             self.assertEqual(cleared, progress.reconcile(tasks) == progress.CLEAR,
                              f"disagreement on {tasks}")
+            self.assertEqual(cleared, progress.nothing_in_flight(tasks),
+                             f"disagreement with the predicate on {tasks}")
+
+        # And the empty list is the deliberate exception, in one place.
+        self.assertTrue(progress.nothing_in_flight([]))
+        self.assertEqual(progress.actions_for([]), progress.CLEAR)
+        self.assertEqual(progress.reconcile([]), [])
 
 
 class TestState(unittest.TestCase):

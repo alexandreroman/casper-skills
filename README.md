@@ -82,8 +82,9 @@ lifecycle drives the workspace:
 | sidebar **working** | the turn starts, and again on every tool call |
 | sidebar **done** | the turn ends, or the session does |
 | sidebar **blocked**, plus a notification | the agent needs a decision, a credential, a login or an approval from you |
-| progress bar | the agent's own task, plan or todo list, mirrored step by step and cleared when the work is over |
-| state, bar and info panel reset | a new session starts — a resume or a compact keeps the info panel, since that work is still the same |
+| progress bar | the agent's own task, plan or todo list, mirrored step by step and cleared when the work is over — an agent whose harness has no such list drives the bar itself, and that bar stands until it clears it |
+| bar cleared | the session ends, whatever set the bar |
+| state, bar and info panel reset | a new session starts — a resume or a compact keeps the bar and the info panel, since that work is still the same |
 | sidebar **error** | opencode only; neither Claude Code nor Codex reports a state that means this |
 
 Apart from that last row the three agents behave identically.

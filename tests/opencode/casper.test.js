@@ -50,9 +50,10 @@ describe("opencode plugin", () => {
     calls.length = 0
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    // No todo list was ever reported, so turn end also reconciles the bar.
+    // No todo list was ever reported, so there is no task state to judge the
+    // bar by and turn end leaves it alone.
     assert.deepEqual(calls, [
-      ["status", "set", "working"], ["status", "set", "done"], ["progress", "clear"]])
+      ["status", "set", "working"], ["status", "set", "done"]])
   })
 
   test("repeated busy reports working only once", async () => {
@@ -107,12 +108,15 @@ describe("opencode plugin", () => {
     assert.deepEqual(calls[0], ["status", "set", "blocked"])
   })
 
-  test("session.deleted for the root reports done", async () => {
+  test("session.deleted for the root reports done and clears the bar", async () => {
+    // Session end is the backstop for a bar the agent set by hand: turn end
+    // leaves that one standing, so nothing after this could ever drop it.
+    // Mirrors hooks/session-end.sh and EVENT_ACTIONS["session-end"].
     const h = await build()
     await h.event(ev("session.created", { info: { id: "root" } }))
     calls.length = 0
     await h.event(ev("session.deleted", { sessionID: "root" }))
-    assert.deepEqual(calls, [["status", "set", "done"]])
+    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("session.deleted for an untracked session is ignored", async () => {
@@ -220,7 +224,7 @@ describe("tool.execute.before", () => {
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     assert.deepEqual(calls, [])
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
+    assert.deepEqual(calls, [["status", "set", "done"]])
   })
 
   test("on a child session it is ignored", async () => {
@@ -407,9 +411,22 @@ describe("progress mirror", () => {
 
 // The bar and the sidebar status are independent surfaces. Nothing but a
 // session restart used to bring them back into agreement, so a bar set during
-// a turn advertised an in-flight step for every later turn.
+// a turn advertised a step of a finished todo list for every later turn.
 describe("turn-end reconciliation", () => {
-  test("a bar left standing with nothing in flight is cleared", async () => {
+  test("a bar the agent drove by hand survives the turn boundary", async () => {
+    // The regression: with no todo tool in play, `todos` is empty and there
+    // is no task state entitled to judge the bar. Clearing it here wiped a
+    // bar the agent had just set, seconds after a turn that ended to let
+    // background work run — and nothing was left running to set it again.
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    calls.length = 0
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, [["status", "set", "done"]])
+  })
+
+  test("a bar left standing over a finished todo list is cleared", async () => {
     const h = await build()
     await h.event(ev("session.created", { info: { id: "root" } }))
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
@@ -439,33 +456,49 @@ describe("turn-end reconciliation", () => {
     const h = await build()
     await h.event(ev("session.created", { info: { id: "root" } }))
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+      { content: "a", status: "completed" },
+    ]}))
     calls.length = 0
     await h.event(ev("session.idle", { sessionID: "root" }))
     assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("a new session forgets the previous session's todos", async () => {
+    // A finished list, so the stale entries are observable: had they survived
+    // the new session.created, turn end would read them as work that is over
+    // and clear a bar belonging to the session that just started.
     const h = await build()
     await h.event(ev("session.created", { info: { id: "root" } }))
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     await h.event(ev("todo.updated", { sessionID: "root", todos: [
-      { content: "b", status: "in_progress" }]}))
+      { content: "b", status: "completed" }]}))
     await h.event(ev("session.created", { info: { id: "root" } }))
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     calls.length = 0
     await h.event(ev("session.idle", { sessionID: "root" }))
-    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
+    assert.deepEqual(calls, [["status", "set", "done"]])
   })
 
-  test("reconcileActions clears on an empty or finished list", () => {
-    assert.deepEqual(reconcileActions([]), [["progress", "clear"]])
+  test("reconcileActions clears a list whose every step is finished", () => {
     assert.deepEqual(reconcileActions([{ content: "a", status: "completed" }]),
       [["progress", "clear"]])
+    assert.deepEqual(reconcileActions([
+      { content: "a", status: "completed" },
+      { content: "b", status: "cancelled" },
+    ]), [["progress", "clear"]])
   })
 
   test("reconcileActions leaves an in-flight list alone", () => {
     assert.deepEqual(reconcileActions([{ content: "a", status: "in_progress" }]), [])
     assert.deepEqual(reconcileActions([{ content: "a", status: "pending" }]), [])
+  })
+
+  test("reconcileActions leaves a hand-driven bar alone", () => {
+    // An empty list is not a list that finished — it is a todo tool that
+    // never reported anything, so the bar on screen was set by the agent
+    // itself and there is no task state here entitled to clear it.
+    assert.deepEqual(reconcileActions([]), [])
   })
 
   test("a turn that ends with every remaining step cancelled drops its bar", async () => {
@@ -481,8 +514,8 @@ describe("turn-end reconciliation", () => {
     assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
   })
 
-  test("reconcileActions treats a non-array as nothing in flight, not a throw", () => {
-    assert.deepEqual(reconcileActions(undefined), [["progress", "clear"]])
-    assert.deepEqual(reconcileActions("not-an-array"), [["progress", "clear"]])
+  test("reconcileActions treats a non-array as no task state, not a throw", () => {
+    assert.deepEqual(reconcileActions(undefined), [])
+    assert.deepEqual(reconcileActions("not-an-array"), [])
   })
 })
