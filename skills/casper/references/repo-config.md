@@ -137,6 +137,113 @@ offsets, and the write-it-from-`setup` mechanics to the project's stack.
   worktree made with a plain `git worktree add`, where `setup` never ran). Rely
   on the `setup` hook and keep it minimal.
 
+## Publishing the endpoints to the info panel
+
+Remapping solves the collision but creates a second problem: the app's URLs
+are now **different in every workspace**, and the only place they appear is a
+startup line the app's own logs scroll past within seconds. An hour later
+nobody remembers which ports this worktree drew.
+
+The scripts that start the app already know those numbers, so have them
+publish the endpoint list to the workspace's **info panel** — one Markdown
+document in the sidebar, outliving the scrollback — and have the script that
+stops the app clear it again. `references/info.md` covers the panel itself;
+what follows is only the wiring a repo's scripts need.
+
+### Rules
+
+1. **Read the ports from the remap, don't recompute them.** Whatever the
+   `setup` hook wrote — a `compose.override.yaml`, an env fragment — is the
+   source of truth; parse or source it. A second, independent
+   `CASPER_PORT + N` computation inside the publisher is exactly the drift
+   the remap section warns about, and it surfaces as a panel advertising a
+   port nothing is listening on.
+2. **Guard it, and never let it fail the app.** It must be a silent no-op in
+   a plain checkout, where neither the variable nor the CLI exists:
+
+   ```bash
+   [ -n "$CASPER_WORKSPACE_ID" ] && command -v casper >/dev/null 2>&1 || return 0
+   ```
+
+   and end the `casper info set` itself with `|| true`.
+3. **Publish before the long-running process starts.** `docker compose up`,
+   a dev server, a parallel `make` of several services — none of them
+   return, so a publish placed after them never runs. Print the banner,
+   publish, *then* hand the terminal over.
+4. **Write the document to a temp file and pass `--file`.** `mktemp` under
+   the system temp dir with a `.md` extension, so a multi-line document
+   never has to survive shell quoting and can never be staged in the repo.
+5. **List what actually varies per workspace.** Every host-published URL as
+   a real link, plus any command whose address moved with the remap (a CLI's
+   `--address`, a database connection string). Ports reachable only inside
+   the container network aren't remapped and don't belong there.
+6. **Clear it when the stack goes down** — in `teardown`, and in any `stop`
+   command too. A panel pointing at a server that no longer runs is worse
+   than an empty one.
+
+### Example
+
+A shell function the `run` script (or a Makefile recipe) calls just before it
+starts the stack, with the ports read back from the file `setup` wrote:
+
+```bash
+publish_endpoints() {
+  [ -n "$CASPER_WORKSPACE_ID" ] && command -v casper >/dev/null 2>&1 || return 0
+  # mktemp only substitutes trailing Xs (BSD/macOS), so add the .md after.
+  info_file="$(mktemp /tmp/casper-info.XXXXXX)"
+  mv "$info_file" "$info_file.md" && info_file="$info_file.md"
+  cat > "$info_file" <<EOF
+# Acme — workspace stack
+
+## Endpoints
+
+| Endpoint | URL |
+| --- | --- |
+| Web UI | <http://localhost:$WEB_PORT> |
+| API | <http://localhost:$API_PORT> |
+
+## Database
+
+\`\`\`
+psql postgres://acme@localhost:$DB_PORT/acme
+\`\`\`
+
+Restart with \`casper run\`.
+EOF
+  casper info set --file "$info_file" >/dev/null 2>&1 || true
+  rm -f "$info_file"
+}
+```
+
+and its counterpart, called from `stop` and `teardown`:
+
+```bash
+clear_endpoints() {
+  [ -n "$CASPER_WORKSPACE_ID" ] && command -v casper >/dev/null 2>&1 || return 0
+  casper info clear >/dev/null 2>&1 || true
+}
+```
+
+Adapt the endpoints, the sections, and where the ports come from to the
+project's stack — this is the shape, not a template to emit verbatim.
+
+### Gotchas
+
+- **Backticks expand inside an unquoted heredoc.** The heredoc has to stay
+  unquoted for `$WEB_PORT` to be substituted, which also makes every
+  backtick a command substitution — escape them (`` \` ``), or build the
+  document with `printf '%s\n'` instead.
+- **`set` replaces the whole panel.** There is no append. If both `run` and
+  a `dev` command publish, each one emits the *complete* document; a script
+  that sends only its own fragment wipes what the other put there.
+- **The panel is display, not storage.** It lives in the running app's
+  memory and comes back empty after a Casper restart; re-running the `run`
+  script is what republishes it. The project's canonical (unremapped) ports
+  still belong in the README.
+- **Don't publish from `setup`.** It runs once, at creation, before anything
+  is listening; the panel would announce endpoints that aren't up yet, and
+  would never be refreshed on later runs.
+
 ## Where the file goes, and why it must be committed
 
 Always write to the **repo root**:
@@ -171,6 +278,10 @@ shares the same config.)
      don't collide — see [Port remapping in parallel workspaces](#port-remapping-in-parallel-workspaces).
      Suggest it and confirm with the user; don't silently generate a bespoke
      remap.
+   - **When the ports move per workspace, so do the URLs.** Propose that the
+     `run` command also publish the resulting endpoints to the info panel,
+     and that `teardown` clear them — see
+     [Publishing the endpoints to the info panel](#publishing-the-endpoints-to-the-info-panel).
 4. **Propose `copyFiles` only when the repo needs more than the defaults.**
    Skim `.gitignore` for local runtime files (`.env*`, `*.local`, …). If the
    defaults (`.env`, `.env.local`) already cover it, leave the key out.
