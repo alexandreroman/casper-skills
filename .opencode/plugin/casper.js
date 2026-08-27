@@ -18,7 +18,7 @@
  * as "child" (skip), never as "adopt" — a missed update beats tracking the
  * wrong session.
  */
-import { spawn } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 
 // Regex-stable on purpose: the Casper app probes the installed plugin file for
@@ -49,6 +49,25 @@ let runner = (args) => {
     child.unref()
   } catch {
     // spawn can throw synchronously (EACCES, ENOENT). Stay silent.
+  }
+}
+
+// How long a read may block the event loop. Reads are synchronous on purpose
+// (see `querier`), so this is the whole of what a wedged `casper` can cost.
+const QUERY_TIMEOUT_MS = 1000
+
+// Default querier: the read counterpart of `runner`, and blocking where that
+// one is fire-and-forget, because the answer decides what the very next call
+// reports. Mirrors hooks/lib/casper.py::query, including reading every failure
+// — no CLI, no app, a timeout, a `casper` too old to know the verb — as "no
+// answer" rather than as an error.
+let querier = (args) => {
+  try {
+    const proc = spawnSync("casper", args, { encoding: "utf8", timeout: QUERY_TIMEOUT_MS })
+    if (proc.status !== 0 || !proc.stdout) return null
+    return JSON.parse(proc.stdout)
+  } catch {
+    return null
   }
 }
 
@@ -117,6 +136,28 @@ export function reconcileActions(todos) {
   return nothingInFlight(list) ? CLEAR : []
 }
 
+// States the agent reached on its own, about something outside the turn.
+// Mirrors hooks/lib/progress.py::ASSERTED.
+const ASSERTED = new Set(["blocked", "error"])
+
+/**
+ * Everything a turn ending emits, given what the workspace is showing.
+ *
+ * Mirrors hooks/lib/progress.py::turn_end_actions, and the rule is the same in
+ * one line: a turn ends `working` when a bar is still up once this is done
+ * with it, `done` otherwise — and nothing is reported over a `blocked` or an
+ * `error`, verdicts the agent reached about something a turn boundary cannot
+ * see. The bar is the shared account of whether the work is over, which is why
+ * an agent that leaves one up over finished work holds its workspace at
+ * `working` until the session ends.
+ */
+export function turnEndActions(todos, state, barUp) {
+  const clears = reconcileActions(todos)
+  if (ASSERTED.has(state)) return clears
+  const stillUp = Boolean(barUp) && clears.length === 0
+  return [["status", "set", stillUp ? "working" : "done"], ...clears]
+}
+
 export function createHandlers({ client }) {
   let rootSessionID = null
   let busy = false
@@ -126,12 +167,20 @@ export function createHandlers({ client }) {
   let todos = []
 
   const run = (args) => { if (inWorkspace()) runner(args) }
+  const query = (args) => (inWorkspace() ? querier(args) : null)
 
-  // Report the turn over, then drop a bar the todo list says the work is done
-  // with. A bar with no todo list behind it is left for the agent that set it.
+  // Read the workspace back before reporting anything about it. The todo list
+  // only ever describes bars this plugin set: a bar the agent drove by hand
+  // with `casper progress set` is invisible to it, and so is a `blocked` the
+  // agent reported for itself. Both reads always run, in this order, so the
+  // argv a turn ending emits never depends on what it is about to find —
+  // hooks/stop.py does the same, and the two are compared call for call.
   const endTurn = () => {
-    run(["status", "set", "done"])
-    for (const args of reconcileActions(todos)) run(args)
+    const answer = query(["status", "get"])
+    const state = answer && typeof answer === "object" ? answer.status ?? null : null
+    const bar = query(["progress", "get"])
+    const barUp = Boolean(bar && typeof bar === "object" && bar.progress != null)
+    for (const args of turnEndActions(todos, state, barUp)) run(args)
   }
 
   // A lookup that fails or hangs must not be retried on every later event on
@@ -310,6 +359,7 @@ const plugin = {
 plugin.__test = {
   createHandlers,
   setRunner(fn) { runner = fn },
+  setQuerier(fn) { querier = fn },
 }
 
 export default plugin

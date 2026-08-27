@@ -14,6 +14,16 @@ casper_stub_init() {
 #!/usr/bin/env bash
 printf '%s\t' "$@" >> "$CASPER_LOG"
 printf '\n' >> "$CASPER_LOG"
+# Canned answers for the read verbs, so a hook that asks `casper` a question
+# can be driven from a test: CASPER_STUB_OUT_<verb>_<subcommand>. Unset means
+# the verb answers nothing, which is what an older CLI or a stopped app looks
+# like. The name is only built for plain lowercase verbs, so no argument can
+# ever compose an env-var name.
+if [[ "${1:-}" =~ ^[a-z]+$ && "${2:-}" =~ ^[a-z]+$ ]]; then
+  reply="CASPER_STUB_OUT_$1_$2"
+  [ -n "${!reply:-}" ] && printf '%s\n' "${!reply}"
+fi
+exit 0
 STUB
   chmod +x "$STUB_DIR/casper"
   export PATH="$STUB_DIR:$CASPER_STUB_BASE_PATH"

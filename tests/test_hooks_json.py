@@ -51,11 +51,17 @@ class TestHooksJson(unittest.TestCase):
                 self.assertIn("${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}", cmd)
 
     def test_every_hook_declares_a_timeout(self):
+        # 3 seconds is the budget for a hook that only writes. Stop is the one
+        # exception: it reads the workspace back (state, then bar) before it
+        # decides what to report, so it can spend four capped calls where the
+        # others spend at most two.
+        budgets = {"Stop": 6}
         for event in HOOKS:
             for group in HOOKS[event]:
                 for hook in group["hooks"]:
-                    self.assertEqual(hook.get("timeout"), 3,
-                                     f"{event} timeout is not 3 seconds")
+                    expected = budgets.get(event, 3)
+                    self.assertEqual(hook.get("timeout"), expected,
+                                     f"{event} timeout is not {expected} seconds")
 
     def test_no_reference_to_deleted_scripts(self):
         blob = json.dumps(HOOKS)

@@ -20,6 +20,14 @@ casper status set error
 casper notify --message "..."
 ```
 
+A state you set this way stands: the turn-end hook reads the sidebar back
+before it reports anything, and never writes over a `blocked` or an `error`.
+Both say something about the world outside the turn — you are waiting on
+someone, or something failed — which no lifecycle event can infer, so a turn
+ending is not allowed to overrule it. What does clear it is the next thing
+that genuinely knows better: your next turn, or your next tool call, both of
+which report `working` again.
+
 `casper notify` is an attention flag — keep its message to the one thing you
 need. If the detail behind it is worth keeping in view (what failed, what you
 tried, what's left), publish that in the workspace's info panel as well — see

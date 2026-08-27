@@ -3,9 +3,9 @@
 # asserts they emit exactly what EVENT_ACTIONS says, so the fast path can
 # never drift from the policy table.
 #
-# `turn-end` is absent here on purpose: hooks/stop.py emits the table's argv
-# and then reconciles the progress bar against the session's task state, so
-# its full mapping is payload-dependent. tests/test_stop.py covers it, and
+# `turn-end` is absent here because it is absent from the table: what a turn
+# ending emits depends on what the workspace is showing, which hooks/stop.py
+# reads back before it decides. tests/test_stop.py covers it, and
 # tests/test_cross_agent_conformance.sh pins it against the opencode plugin.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
