@@ -122,6 +122,64 @@ class TestReconcile(unittest.TestCase):
         self.assertEqual(progress.reconcile([]), [])
 
 
+class TestTurnEndActions(unittest.TestCase):
+    """What a turn ending emits. One rule: it ends `working` when a bar is
+    still up once the hook is done with it, `done` otherwise — and it reports
+    nothing at all over a state the agent asserted for itself."""
+
+    DONE = ["status", "set", "done"]
+    WORKING = ["status", "set", "working"]
+    IN_FLIGHT = [{"label": "a", "status": "completed"},
+                 {"label": "b", "status": "in_progress"}]
+    FINISHED = [{"label": "a", "status": "completed"}]
+
+    def test_a_hand_driven_bar_holds_the_turn_at_working(self):
+        # The reported bug: no task tool, so no task state, and a bar the agent
+        # set by hand before ending its turn to let background subagents run.
+        self.assertEqual(progress.turn_end_actions([], "working", True),
+                         [self.WORKING])
+
+    def test_no_bar_ends_the_turn_done(self):
+        self.assertEqual(progress.turn_end_actions([], "working", False),
+                         [self.DONE])
+
+    def test_a_task_still_in_flight_keeps_its_bar_and_reports_working(self):
+        self.assertEqual(progress.turn_end_actions(self.IN_FLIGHT, "working", True),
+                         [self.WORKING])
+
+    def test_a_finished_task_list_clears_its_bar_and_reports_done(self):
+        # The bar is up right now, but this hook is about to clear it, so the
+        # turn is over: `done` is judged on what will be left, not what is.
+        self.assertEqual(progress.turn_end_actions(self.FINISHED, "working", True),
+                         [self.DONE, progress.CLEAR[0]])
+
+    def test_a_bar_that_never_existed_cannot_hold_an_in_flight_task(self):
+        # actions_for leaves the bar alone when no in-progress task carries a
+        # label, so there may be nothing on screen: no bar, nothing to show.
+        self.assertEqual(progress.turn_end_actions(self.IN_FLIGHT, "working", False),
+                         [self.DONE])
+
+    def test_an_asserted_state_is_never_reported_over(self):
+        # `blocked` and `error` are verdicts about something outside the turn.
+        # The bar is still reconciled — that surface is independent.
+        for state in ("blocked", "error"):
+            self.assertEqual(progress.turn_end_actions([], state, True), [])
+            self.assertEqual(progress.turn_end_actions([], state, False), [])
+            self.assertEqual(progress.turn_end_actions(self.FINISHED, state, True),
+                             progress.CLEAR)
+
+    def test_states_a_hook_set_are_reported_over(self):
+        # Everything turn end is there to decide between, including the state
+        # its own turn-start hook set.
+        for state in ("working", "idle", "done", "unknown", None):
+            self.assertEqual(progress.turn_end_actions([], state, True),
+                             [self.WORKING], f"state {state!r}")
+
+    def test_an_unreadable_workspace_falls_back_to_done(self):
+        # Both reads failed: the behaviour this had before they existed.
+        self.assertEqual(progress.turn_end_actions([], None, False), [self.DONE])
+
+
 class TestState(unittest.TestCase):
     def test_missing_file_loads_empty(self):
         self.assertEqual(progress.load("/nonexistent/path.json"), {})

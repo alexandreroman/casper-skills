@@ -117,20 +117,19 @@ console.log(JSON.stringify(calls))
   echo "  py $py_blocked"; echo "  js $js_blocked"; exit 1; }
 echo "  ok: blocked pair matches (hooks/blocked.py == opencode permission.asked)"
 
-# turn-end is no longer a fixed constant: it reports done and then reconciles
-# the progress bar against the agent's own task state, so a bar that state
-# says the work is done with cannot outlive the turn — while a bar with no
-# task state behind it, driven by hand, deliberately does. The status call
-# still comes from EVENT_ACTIONS (asserted below), but the pair as a whole is
-# payload-dependent, so it gets the same drive-both-sides-and-compare
-# treatment as the others.
+# turn-end left EVENT_ACTIONS entirely: what a turn ending means depends on
+# what the workspace is showing. Both agents read it back — the state, then
+# whether a bar is up — and decide from that, so the reads are part of the argv
+# compared here. Each side is driven with the same task state and the same
+# canned answers, and the two argv streams must match call for call.
 
 turn_end_py() {
-  # $1: task list, the same fixture shape used for the progress mapping above.
-  # It is written out as the on-disk session mirror hooks/stop.py reads.
-  local fixture="$1" dir
+  # $1: task list, the same fixture shape used for the progress mapping above,
+  # written out as the on-disk session mirror hooks/stop.py reads. $2: what
+  # `casper status get` answers. $3: 1 when `casper progress get` reports a bar.
+  local fixture="$1" state="$2" bar="$3" dir
   dir="$(mktemp -d)"
-  FIXTURE="$fixture" MIRROR_DIR="$dir" python3 - <<'PY'
+  FIXTURE="$fixture" STATE="$state" BAR="$bar" MIRROR_DIR="$dir" python3 - <<'PY'
 import json, os, subprocess, sys
 sys.path.insert(0, "tests/lib")
 from harness import CasperStub
@@ -138,9 +137,10 @@ tasks = json.loads(os.environ["FIXTURE"])
 mirror = {str(i): t for i, t in enumerate(tasks)}
 with open(os.path.join(os.environ["MIRROR_DIR"], "sid.json"), "w") as f:
     json.dump(mirror, f)
+replies = CasperStub.replies(status=os.environ["STATE"], bar=os.environ["BAR"] == "1")
 with CasperStub() as stub:
     subprocess.run(["hooks/stop.py"], input=json.dumps({"session_id": "sid"}),
-                   env=stub.env(CLAUDE_PLUGIN_DATA=os.environ["MIRROR_DIR"]),
+                   env=stub.env(CLAUDE_PLUGIN_DATA=os.environ["MIRROR_DIR"], **replies),
                    text=True, capture_output=True)
     print(json.dumps(stub.calls, separators=(",", ":")))
 PY
@@ -154,6 +154,19 @@ process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
 const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
 plugin.__test.setRunner((a) => calls.push(a))
+const state = process.argv[2]
+const bar = process.argv[3] === "1"
+// The stub `casper` the Python side runs records the read verbs too, so this
+// one has to as well, or the two streams could never compare equal.
+plugin.__test.setQuerier((a) => {
+  calls.push(a)
+  const verb = a.join(" ")
+  if (verb === "status get") return { status: state, workspace: "test-ws" }
+  if (verb === "progress get") {
+    return { progress: bar ? { total: 3, current: 2, label: "step" } : null, workspace: "test-ws" }
+  }
+  return null
+})
 const ev = (type, properties) => ({ event: { type, properties } })
 const todos = JSON.parse(process.argv[1]).map(t => ({ content: t.label, status: t.status }))
 await hooks.event(ev("session.created", { info: { id: "root" } }))
@@ -162,30 +175,36 @@ await hooks.event(ev("todo.updated", { sessionID: "root", todos }))
 calls.length = 0
 await hooks.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
 console.log(JSON.stringify(calls))
-' "$1"
+' "$1" "$2" "$3"
 }
 
+READS_PREFIX='[["status","get"],["progress","get"]'
+
 check_turn_end() {
-  # $1: fixture, $2: human-readable description of what it represents.
-  local fixture="$1" what="$2" py js
-  py="$(turn_end_py "$fixture")"
-  js="$(turn_end_js "$fixture")"
+  # $1: fixture, $2: state read back, $3: 1 when a bar is up, $4: what it is.
+  local fixture="$1" state="$2" bar="$3" what="$4" py js
+  py="$(turn_end_py "$fixture" "$state" "$bar")"
+  js="$(turn_end_js "$fixture" "$state" "$bar")"
   [ "$py" = "$js" ] || {
     echo "FAIL: turn-end mismatch ($what)"
     echo "  py $py"; echo "  js $js"; exit 1; }
-  # Whatever the payload, the status call is still the table's.
+  # Both reads always run, in the same order, whatever they are about to find:
+  # the argv a turn ending emits must not depend on the answers.
   case "$py" in
-    "$(expected_for turn-end | sed 's/]$//')"*) ;;
-    *) echo "FAIL: turn-end does not start with EVENT_ACTIONS[turn-end] ($what)"
-       echo "  expected prefix $(expected_for turn-end)"; echo "  got $py"; exit 1 ;;
+    "$READS_PREFIX"*) ;;
+    *) echo "FAIL: turn-end does not read the workspace back first ($what)"
+       echo "  expected prefix $READS_PREFIX"; echo "  got $py"; exit 1 ;;
   esac
   echo "  ok: turn-end matches, $what -> $py"
 }
 
-check_turn_end '[]'                                                        "no task state: a hand-driven bar stands"
-check_turn_end '[{"label":"a","status":"completed"}]'                      "every step finished"
-check_turn_end '[{"label":"a","status":"completed"},{"label":"b","status":"in_progress"}]' "a step still in flight"
-check_turn_end '[{"label":"a","status":"completed"},{"label":"b","status":"cancelled"}]'   "the rest cancelled"
+check_turn_end '[]' working 1 "no task state: a hand-driven bar holds the turn at working"
+check_turn_end '[]' working 0 "no task state and no bar: the turn is over"
+check_turn_end '[{"label":"a","status":"completed"}]' working 1 "every step finished"
+check_turn_end '[{"label":"a","status":"completed"},{"label":"b","status":"in_progress"}]' working 1 "a step still in flight"
+check_turn_end '[{"label":"a","status":"completed"},{"label":"b","status":"cancelled"}]' working 1 "the rest cancelled"
+check_turn_end '[]' blocked 1 "a blocked agent is not reported over"
+check_turn_end '[{"label":"a","status":"completed"}]' error 1 "an error keeps its state, the bar is still reconciled"
 
 # session-end is a fixed constant on the hook side (test_event_conformance.sh
 # pins hooks/session-end.sh against the table), but opencode reaches it through

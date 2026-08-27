@@ -34,13 +34,18 @@ overwrite each other and the sidebar ends up showing neither.
 
 Check your own tool list rather than assuming, in either direction. Only if
 you genuinely have no such tool is driving the bar yourself the right move,
-and then it is not optional — it is how that work gets tracked here. A bar
-you set by hand stays up until you clear it or the session ends, so move it
-on as each step begins and clear it the moment the work is done — nothing
-else knows that it is:
+and then it is not optional — it is how that work gets tracked here:
 
   casper progress set --total <n> --current <i> --label "<current step>"
   casper progress clear
+
+Whichever fills it, the bar is also how the workspace knows whether the work
+is over. A bar still up when your turn ends says the work outlives the turn —
+which is right when you left background work running, and it holds the
+sidebar at "working" instead of announcing a finish that has not happened.
+The other half of that is yours: clear the bar the moment the work is done,
+or the workspace stays "working" until the session ends. Nothing else knows
+that it is done.
 
 Read the `casper` skill now, before your first `casper` command — load it as
 a skill if your harness has skills, otherwise just read the file:

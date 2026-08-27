@@ -1,11 +1,12 @@
 """Progress-bar computation, shared by every agent.
 
-Two mappings live here: `actions_for`, run on every task change, and
+Three mappings live here: `actions_for`, run on every task change,
 `reconcile`, run at the turn boundary so a bar the task list says the work is
-done with cannot outlive that turn. They share one predicate,
-`nothing_in_flight`, so they cannot disagree about what "done" means — but
-only `actions_for` reads an empty list as done. At the turn boundary an empty
-list means no task tool ever reported anything, not that the work finished.
+done with cannot outlive that turn, and `turn_end_actions`, the whole of what
+a turn ending emits. The first two share one predicate, `nothing_in_flight`,
+so they cannot disagree about what "done" means — but only `actions_for` reads
+an empty list as done. At the turn boundary an empty list means no task tool
+ever reported anything, not that the work finished.
 
 Two shapes of input converge here. Claude Code and Codex report task changes
 one at a time, so their entry point keeps a per-session mirror on disk and
@@ -94,6 +95,42 @@ def reconcile(tasks):
     if not tasks:
         return []
     return CLEAR if nothing_in_flight(tasks) else []
+
+
+# States an agent reached on its own, about something outside the turn: it is
+# waiting on the user, or it failed. No hook can infer either from a turn
+# boundary, so turn end reports nothing over them — it would only ever replace
+# a verdict with a guess. Every other state is fair game: `working`, `idle` and
+# `done` are exactly what turn end is there to decide between.
+ASSERTED = frozenset({"blocked", "error"})
+
+
+def turn_end_actions(tasks, state, bar_up):
+    """Everything a turn ending emits, given what the workspace is showing.
+
+    `state` is the sidebar's current state and `bar_up` whether a bar is on
+    screen, both read back over the CLI (`casper.py::agent_state`,
+    `casper.py::bar_is_up`); `tasks` is the agent's task state, as `reconcile`
+    reads it. The rule in one line: a turn ends `working` when a bar is still
+    up once this hook is done with it, and `done` otherwise.
+
+    That makes the bar the shared account of whether work is over, which is
+    what the turn boundary on its own cannot tell. An agent that dispatches
+    background subagents and ends its turn to let them run leaves its bar up
+    on purpose; reporting `done` there put the sidebar at odds with the bar
+    beside it, and cost the user a completion notification for work still
+    running. The other side of that bargain is the agent's: a bar left up over
+    finished work now holds the workspace at `working` until session end, so
+    clearing it the moment the work is done is what keeps the state honest.
+
+    Reads that fail come back as None/False, and a turn with no bar reports
+    `done` — the behaviour this had before either read existed.
+    """
+    clears = reconcile(tasks)
+    if state in ASSERTED:
+        return clears
+    still_up = bool(bar_up) and not clears
+    return [["status", "set", "working" if still_up else "done"]] + clears
 
 
 def state_path(session_id: str) -> str:

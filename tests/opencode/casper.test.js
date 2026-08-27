@@ -3,21 +3,46 @@ import assert from "node:assert/strict"
 import { existsSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import plugin, { progressActions, reconcileActions } from "../../.opencode/plugin/casper.js"
+import plugin, { progressActions, reconcileActions, turnEndActions } from "../../.opencode/plugin/casper.js"
 
 // The repository root, as a URL, so a manifest path like "./skills/" resolves
 // the same way the agents resolve it.
 const PLUGIN_ROOT = new URL("../../", import.meta.url)
 
 let calls
+// What the stubbed `casper` answers the two read verbs with. Mutate it inside
+// a test to put the workspace in the state that test is about; `build` resets
+// it to "a turn under way, nothing on screen".
+let answers
 const fakeClient = {
   session: { list: async () => ({ data: [{ id: "root" }, { id: "child", parentID: "root" }] }) },
 }
 
+// Every turn end reads the workspace back first, always in this order.
+const READS = [["status", "get"], ["progress", "get"]]
+
 async function build(client = fakeClient) {
   calls = []
+  answers = { status: "working", bar: false }
   const hooks = await plugin.server({ client, directory: "/tmp" })
   plugin.__test.setRunner((args) => { calls.push(args) })
+  // A read is a call too, so it is recorded alongside the writes: every
+  // assertion below is then a full account of what the plugin did, and the
+  // real `casper` never runs from the suite. `null` stands for a CLI that
+  // cannot answer at all.
+  plugin.__test.setQuerier((args) => {
+    calls.push(args)
+    const verb = args.join(" ")
+    if (verb === "status get") {
+      return answers.status === null ? null : { status: answers.status, workspace: "test-ws" }
+    }
+    if (verb === "progress get") {
+      if (answers.bar === null) return null
+      const body = answers.bar ? { total: 3, current: 2, label: "step" } : null
+      return { progress: body, workspace: "test-ws" }
+    }
+    return null
+  })
   return hooks
 }
 
@@ -51,9 +76,9 @@ describe("opencode plugin", () => {
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
     // No todo list was ever reported, so there is no task state to judge the
-    // bar by and turn end leaves it alone.
+    // bar by, and nothing is on screen either: the turn is over.
     assert.deepEqual(calls, [
-      ["status", "set", "working"], ["status", "set", "done"]])
+      ["status", "set", "working"], ...READS, ["status", "set", "done"]])
   })
 
   test("repeated busy reports working only once", async () => {
@@ -224,7 +249,7 @@ describe("tool.execute.before", () => {
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     assert.deepEqual(calls, [])
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    assert.deepEqual(calls, [["status", "set", "done"]])
+    assert.deepEqual(calls, [...READS, ["status", "set", "done"]])
   })
 
   test("on a child session it is ignored", async () => {
@@ -422,8 +447,9 @@ describe("turn-end reconciliation", () => {
     await h.event(ev("session.created", { info: { id: "root" } }))
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     calls.length = 0
+    answers.bar = true
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    assert.deepEqual(calls, [["status", "set", "done"]])
+    assert.deepEqual(calls, [...READS, ["status", "set", "working"]])
   })
 
   test("a bar left standing over a finished todo list is cleared", async () => {
@@ -435,8 +461,9 @@ describe("turn-end reconciliation", () => {
       { content: "b", status: "completed" },
     ]}))
     calls.length = 0
+    answers.bar = true
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
+    assert.deepEqual(calls, [...READS, ["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("a genuinely in-flight task keeps its bar across the boundary", async () => {
@@ -448,8 +475,9 @@ describe("turn-end reconciliation", () => {
       { content: "b", status: "in_progress" },
     ]}))
     calls.length = 0
+    answers.bar = true
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    assert.deepEqual(calls, [["status", "set", "done"]])
+    assert.deepEqual(calls, [...READS, ["status", "set", "working"]])
   })
 
   test("session.idle reconciles the same way session.status idle does", async () => {
@@ -460,8 +488,9 @@ describe("turn-end reconciliation", () => {
       { content: "a", status: "completed" },
     ]}))
     calls.length = 0
+    answers.bar = true
     await h.event(ev("session.idle", { sessionID: "root" }))
-    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
+    assert.deepEqual(calls, [...READS, ["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("a new session forgets the previous session's todos", async () => {
@@ -477,7 +506,7 @@ describe("turn-end reconciliation", () => {
     await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
     calls.length = 0
     await h.event(ev("session.idle", { sessionID: "root" }))
-    assert.deepEqual(calls, [["status", "set", "done"]])
+    assert.deepEqual(calls, [...READS, ["status", "set", "done"]])
   })
 
   test("reconcileActions clears a list whose every step is finished", () => {
@@ -510,8 +539,71 @@ describe("turn-end reconciliation", () => {
       { content: "b", status: "cancelled" },
     ]}))
     calls.length = 0
+    answers.bar = true
     await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-    assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
+    assert.deepEqual(calls, [...READS, ["status", "set", "done"], ["progress", "clear"]])
+  })
+
+  test("a blocked agent is not reported over at turn end", async () => {
+    // The guidance tells an agent to report `blocked` when it ends a turn
+    // waiting on the user. Turn end fires straight after and used to overwrite
+    // that verdict with one inferred from the turn boundary alone — the one
+    // state nothing here can reach on its own.
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    calls.length = 0
+    answers.status = "blocked"
+    answers.bar = true
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, READS)
+  })
+
+  test("an error is not reported over, but the bar is still reconciled", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+      { content: "a", status: "completed" },
+    ]}))
+    calls.length = 0
+    answers.status = "error"
+    answers.bar = true
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, [...READS, ["progress", "clear"]])
+  })
+
+  test("a casper that cannot answer ends the turn done", async () => {
+    // An older CLI without the read verbs, or a stopped app: the turn ends
+    // exactly as it did before either read existed.
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    calls.length = 0
+    answers.status = null
+    answers.bar = null
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, [...READS, ["status", "set", "done"]])
+  })
+
+  test("turnEndActions: a bar still up once this is done holds the turn at working", () => {
+    assert.deepEqual(turnEndActions([], "working", true), [["status", "set", "working"]])
+    assert.deepEqual(turnEndActions([], "working", false), [["status", "set", "done"]])
+    // Up right now, but about to be cleared: judged on what will be left.
+    assert.deepEqual(turnEndActions([{ content: "a", status: "completed" }], "working", true),
+      [["status", "set", "done"], ["progress", "clear"]])
+  })
+
+  test("turnEndActions: an asserted state is never reported over", () => {
+    for (const state of ["blocked", "error"]) {
+      assert.deepEqual(turnEndActions([], state, true), [])
+      assert.deepEqual(turnEndActions([{ content: "a", status: "completed" }], state, true),
+        [["progress", "clear"]])
+    }
+    // Everything turn end is there to decide between, including no answer.
+    for (const state of ["working", "idle", "done", "unknown", null, undefined]) {
+      assert.deepEqual(turnEndActions([], state, true), [["status", "set", "working"]])
+    }
   })
 
   test("reconcileActions treats a non-array as no task state, not a throw", () => {

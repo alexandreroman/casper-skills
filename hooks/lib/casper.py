@@ -2,30 +2,33 @@
 events to CLI calls.
 
 EVENT_ACTIONS covers only the events whose mapping is a fixed constant.
-session-start, blocked and tasks-changed depend on their payload, so each
-entry point computes its own (`hooks/session-start.py`, `hooks/blocked.py`,
+session-start, turn-end, blocked and tasks-changed depend on state the table
+cannot hold, so each entry point computes its own (`hooks/session-start.py`,
+`hooks/stop.py` through `progress.py::turn_end_actions`, `hooks/blocked.py`,
 `progress.py::actions_for`, and the opencode plugin's counterparts) while
 still routing every call through run(), so the guards apply uniformly.
 
-turn-end straddles the two: the status call below is the whole of it here, but
-the entry point then reconciles the progress bar against the agent's task
-state (`progress.py::reconcile`), which clears a bar that state says the work
-is done with and leaves a hand-driven one standing. session-end is the
-backstop for that one: it clears the bar unconditionally, so nothing the agent
-set by hand can outlive the session.
+turn-end left the table when it stopped being a constant. What a turn ending
+means depends on what the workspace is showing: a bar still up means work that
+outlives the turn, and a `blocked` or `error` is the agent's own verdict, which
+no hook can infer and none may overwrite. Both are read back over the CLI here
+(`agent_state`, `bar_is_up`) and decided in `progress.py::turn_end_actions`.
+session-end stays constant, and is the backstop for a bar turn-end leaves
+standing: it clears the bar unconditionally, so nothing the agent set by hand
+can outlive the session.
 
 tests/test_event_conformance.sh pins the fixed events against this table, and
 tests/test_cross_agent_conformance.sh compares every agent's argv — the
 payload-dependent mappings included — against each other. A mapping neither
 reaches is the one place drift can still happen silently.
 """
+import json
 import os
 import subprocess
 
 EVENT_ACTIONS: "dict[str, list[list[str]]]" = {
     "turn-start":    [["status", "set", "working"]],
     "tool-activity": [["status", "set", "working"]],
-    "turn-end":      [["status", "set", "done"]],
     "session-end":   [["status", "set", "done"], ["progress", "clear"]],
 }
 
@@ -54,3 +57,48 @@ def emit(event: str, timeout: float = 2.0) -> None:
     """Run every CLI call the table maps to `event`. Unknown event: no-op."""
     for args in EVENT_ACTIONS.get(event, []):
         run(args, timeout=timeout)
+
+
+def query(args, timeout: float = 2.0):
+    """Invoke `casper` for an answer: its parsed JSON, or None if it has none.
+
+    The read counterpart of run(), under the same rule that Casper may never
+    interrupt a turn — every failure reads as None. That covers the CLI being
+    absent, the app not running, a timeout, and, deliberately, a `casper` too
+    old to know the verb: it exits 64 on an unknown subcommand, so a plugin
+    ahead of the app degrades to the behaviour it had before the verb existed
+    rather than to an error.
+    """
+    if not in_workspace():
+        return None
+    try:
+        proc = subprocess.run(
+            ["casper"] + list(args),
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return json.loads(proc.stdout)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def agent_state(timeout: float = 2.0):
+    """The state the sidebar is showing, or None when it cannot be read."""
+    answer = query(["status", "get"], timeout=timeout)
+    return answer.get("status") if isinstance(answer, dict) else None
+
+
+def bar_is_up(timeout: float = 2.0) -> bool:
+    """Whether a progress bar is on screen right now, whoever set it.
+
+    The one question the hooks cannot answer from their own bookkeeping: the
+    task mirror sees the bars a task tool drove, and nothing sees a bar the
+    agent set by hand with `casper progress set`. Unreadable reads as no bar,
+    which keeps turn end reporting `done` exactly as it did before.
+    """
+    answer = query(["progress", "get"], timeout=timeout)
+    return isinstance(answer, dict) and answer.get("progress") is not None

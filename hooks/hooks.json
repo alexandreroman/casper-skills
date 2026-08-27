@@ -61,7 +61,7 @@
           {
             "type": "command",
             "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/stop.py\" || true",
-            "timeout": 3
+            "timeout": 6
           }
         ]
       }

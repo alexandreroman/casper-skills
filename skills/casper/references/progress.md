@@ -76,7 +76,9 @@ Two rules make hand-driving safe:
 - **Clear it as soon as the work is done**, in the turn that finishes it.
   Nothing else knows your work finished. A hand-driven bar stands until you
   clear it or the session ends — it outlives a turn boundary on purpose
-  (below) — so this one rule is the whole of what keeps it honest.
+  (below) — so this one rule is the whole of what keeps it honest. It is also
+  what reports the work finished at all: a turn ending with a bar still up is
+  read as work that outlives the turn, and holds the sidebar at `working`.
 - **Move it as each step begins**, with the same command and a new
   `--current` and `--label`. Set once and never touched, it describes step
   one for the whole of the work.
@@ -92,10 +94,26 @@ Two rules make hand-driving safe:
   A hand-driven bar has no task state behind it, so the hook leaves it exactly
   as it is — it survives the turn boundary for the same reason an in-flight
   step does. Work outlives turns routinely: subagents dispatched to run in the
-  background, a turn ended to put a question to the user. The sidebar is not
-  lying about activity in the meantime, because the agent-state icon reports
-  done or idle independently of the bar.
+  background, a turn ended to put a question to the user.
 - **Session end**, whatever set the bar. The backstop for the hand-driven one
   the agent never got around to clearing.
 - **Session start**, along with the rest of the workspace surfaces — though a
   resume or a compact keeps the bar, since that work is still the same.
+
+## What the bar says about the sidebar state
+
+The two surfaces are read together when a turn ends, and the bar settles the
+question the turn boundary cannot answer on its own: is the work over?
+
+- **A bar still up when your turn ends** reports `working`, not `done`. That
+  is the point of it standing: an agent that dispatched background subagents
+  and ended its turn to let them run has not finished, and saying it has costs
+  the user a completion notification for work that is still going.
+- **No bar** reports `done`, exactly as it always has.
+- **A `blocked` or an `error` you reported yourself** is never written over.
+  Those are verdicts about something outside the turn that no hook can reach
+  on its own — see `references/status.md`.
+
+The cost of the first one is yours to carry: a bar you forget to clear holds
+the workspace at `working` until the session ends, and no completion is ever
+reported for that work. Clear the bar when the work is done.
