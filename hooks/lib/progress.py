@@ -1,9 +1,11 @@
 """Progress-bar computation, shared by every agent.
 
 Two mappings live here: `actions_for`, run on every task change, and
-`reconcile`, run at the turn boundary so a bar describing no live work cannot
-survive the turn that set it. They share one predicate, `nothing_in_flight`,
-so they cannot disagree about when there is nothing to show.
+`reconcile`, run at the turn boundary so a bar the task list says the work is
+done with cannot outlive that turn. They share one predicate,
+`nothing_in_flight`, so they cannot disagree about what "done" means — but
+only `actions_for` reads an empty list as done. At the turn boundary an empty
+list means no task tool ever reported anything, not that the work finished.
 
 Two shapes of input converge here. Claude Code and Codex report task changes
 one at a time, so their entry point keeps a per-session mirror on disk and
@@ -72,15 +74,25 @@ def actions_for(tasks):
 def reconcile(tasks):
     """Map a task list to the calls that make the bar honest at a boundary.
 
-    Called where the agent is known not to be running (turn end). The bar
-    claims "step N of M, right now"; with nothing in flight that claim is
-    false, so it must go whoever set it — including the bar `actions_for`
-    left standing for want of a labelled task, and the one an agent with no
-    task tool drove by hand, neither of which any other path clears.
+    Called where the agent is known not to be running (turn end), and it
+    judges the bar only by task state it can actually read. A non-empty list
+    with every task finished describes work that is over, so its bar goes —
+    including the one `actions_for` left standing for want of a labelled task.
+    A task still in flight keeps its bar, so a turn that ends waiting on the
+    user still shows where the work stopped.
 
-    A task genuinely still in flight keeps its bar, so a turn that ends
-    waiting on the user still shows where the work stopped.
+    An empty list is not "nothing to show" here: it means no task tool ever
+    reported anything, which is the agent that has none and drove `casper
+    progress` by hand. Its bar is left alone, and for the same reason an
+    in-flight task keeps its own — work routinely outlives a turn boundary
+    (background agents still running, a turn ended to ask the user a
+    question), and the sidebar does not lie about activity in the meantime
+    because the agent-state icon reports done/idle on its own. What clears
+    that bar is the agent's own `progress clear` when the work is done, and
+    session end as the backstop for the one it forgets.
     """
+    if not tasks:
+        return []
     return CLEAR if nothing_in_flight(tasks) else []
 
 

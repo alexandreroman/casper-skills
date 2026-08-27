@@ -18,8 +18,10 @@ overwrite each other and the sidebar ends up showing neither.
 
 Check your own tool list rather than assuming, in either direction. Only if
 you genuinely have no such tool is driving the bar yourself the right move,
-and then it is not optional — it is how that work gets tracked here. Clear it
-as soon as the work is done:
+and then it is not optional — it is how that work gets tracked here. A bar
+you set by hand stays up until you clear it or the session ends, so move it
+on as each step begins and clear it the moment the work is done — nothing
+else knows that it is:
 
   casper progress set --total <n> --current <i> --label "<current step>"
   casper progress clear

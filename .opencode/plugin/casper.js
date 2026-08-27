@@ -101,12 +101,20 @@ export function progressActions(todos) {
  * Map a todo list to the calls that make the bar honest at a turn boundary.
  *
  * Mirrors hooks/lib/progress.py::reconcile. The turn boundary is the one
- * moment the agent is known not to be running, so a bar that no longer
- * describes live work has to go there — including one this plugin never set,
- * because an agent drove `casper progress` itself.
+ * moment the agent is known not to be running, so a list whose every step is
+ * finished loses its bar there.
+ *
+ * An empty list is left alone instead. `todos` starts empty and stays empty
+ * for as long as no todo tool has run, which is exactly the case where the
+ * agent drove `casper progress` itself — a bar this plugin has no task state
+ * to judge, and which is meant to survive the turn: work outlives a turn
+ * boundary, and the sidebar still reports done/idle through the agent-state
+ * icon. That bar goes when the agent clears it, or when the session ends.
  */
 export function reconcileActions(todos) {
-  return nothingInFlight(Array.isArray(todos) ? todos : []) ? CLEAR : []
+  const list = Array.isArray(todos) ? todos : []
+  if (list.length === 0) return []
+  return nothingInFlight(list) ? CLEAR : []
 }
 
 export function createHandlers({ client }) {
@@ -119,7 +127,8 @@ export function createHandlers({ client }) {
 
   const run = (args) => { if (inWorkspace()) runner(args) }
 
-  // Report the turn over, then drop a bar that no longer describes live work.
+  // Report the turn over, then drop a bar the todo list says the work is done
+  // with. A bar with no todo list behind it is left for the agent that set it.
   const endTurn = () => {
     run(["status", "set", "done"])
     for (const args of reconcileActions(todos)) run(args)
@@ -232,6 +241,11 @@ export function createHandlers({ client }) {
         // to "done" for a session the plugin never tracked.
         if (rootSessionID === null || sessionID !== rootSessionID) return
         run(["status", "set", "done"])
+        // Session end is the backstop for a bar the agent set by hand and
+        // never cleared: turn end deliberately leaves that one standing, and
+        // nothing after this point could ever drop it. Mirrors
+        // hooks/session-end.sh and EVENT_ACTIONS["session-end"].
+        run(["progress", "clear"])
         rootSessionID = null
         busy = false
         todos = []

@@ -9,7 +9,10 @@ still routing every call through run(), so the guards apply uniformly.
 
 turn-end straddles the two: the status call below is the whole of it here, but
 the entry point then reconciles the progress bar against the agent's task
-state (`progress.py::reconcile`) so a bar cannot outlive the turn that set it.
+state (`progress.py::reconcile`), which clears a bar that state says the work
+is done with and leaves a hand-driven one standing. session-end is the
+backstop for that one: it clears the bar unconditionally, so nothing the agent
+set by hand can outlive the session.
 
 tests/test_event_conformance.sh pins the fixed events against this table, and
 tests/test_cross_agent_conformance.sh compares every agent's argv — the
@@ -23,7 +26,7 @@ EVENT_ACTIONS: "dict[str, list[list[str]]]" = {
     "turn-start":    [["status", "set", "working"]],
     "tool-activity": [["status", "set", "working"]],
     "turn-end":      [["status", "set", "done"]],
-    "session-end":   [["status", "set", "done"]],
+    "session-end":   [["status", "set", "done"], ["progress", "clear"]],
 }
 
 

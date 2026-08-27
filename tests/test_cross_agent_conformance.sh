@@ -118,10 +118,12 @@ console.log(JSON.stringify(calls))
 echo "  ok: blocked pair matches (hooks/blocked.py == opencode permission.asked)"
 
 # turn-end is no longer a fixed constant: it reports done and then reconciles
-# the progress bar against the agent's own task state, so a bar describing no
-# live work cannot outlive the turn. The status call still comes from
-# EVENT_ACTIONS (asserted below), but the pair as a whole is payload-dependent,
-# so it gets the same drive-both-sides-and-compare treatment as the others.
+# the progress bar against the agent's own task state, so a bar that state
+# says the work is done with cannot outlive the turn — while a bar with no
+# task state behind it, driven by hand, deliberately does. The status call
+# still comes from EVENT_ACTIONS (asserted below), but the pair as a whole is
+# payload-dependent, so it gets the same drive-both-sides-and-compare
+# treatment as the others.
 
 turn_end_py() {
   # $1: task list, the same fixture shape used for the progress mapping above.
@@ -180,9 +182,31 @@ check_turn_end() {
   echo "  ok: turn-end matches, $what -> $py"
 }
 
-check_turn_end '[]'                                                        "nothing tracked at all"
+check_turn_end '[]'                                                        "no task state: a hand-driven bar stands"
 check_turn_end '[{"label":"a","status":"completed"}]'                      "every step finished"
 check_turn_end '[{"label":"a","status":"completed"},{"label":"b","status":"in_progress"}]' "a step still in flight"
 check_turn_end '[{"label":"a","status":"completed"},{"label":"b","status":"cancelled"}]'   "the rest cancelled"
+
+# session-end is a fixed constant on the hook side (test_event_conformance.sh
+# pins hooks/session-end.sh against the table), but opencode reaches it through
+# session.deleted, which the table cannot drive. It is the backstop for a bar
+# turn-end now leaves standing, so the two agents have to agree about it.
+js_session_end="$(node --input-type=module -e '
+import plugin from "./.opencode/plugin/casper.js"
+process.env.CASPER_WORKSPACE_ID = "test-ws"
+const calls = []
+const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+plugin.__test.setRunner((a) => calls.push(a))
+const ev = (type, properties) => ({ event: { type, properties } })
+await hooks.event(ev("session.created", { info: { id: "root" } }))
+calls.length = 0
+await hooks.event(ev("session.deleted", { sessionID: "root" }))
+console.log(JSON.stringify(calls))
+')"
+
+[ "$js_session_end" = "$(expected_for session-end)" ] || {
+  echo "FAIL: session-end mismatch (EVENT_ACTIONS vs opencode session.deleted)"
+  echo "  expected $(expected_for session-end)"; echo "  got      $js_session_end"; exit 1; }
+echo "  ok: session-end matches (EVENT_ACTIONS == opencode session.deleted)"
 
 echo "PASS"

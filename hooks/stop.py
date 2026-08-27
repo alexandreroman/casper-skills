@@ -9,9 +9,11 @@ workspace is seen.
 
 `status` and `progress` are independent surfaces, so the bar is reconciled
 here too. The turn boundary is the one moment the agent is known not to be
-running, which makes it both the only place a bar describing no live work can
-be dropped (see `progress.py::reconcile`) and the only place the task mirror
-can be deleted without racing a tool call.
+running, which makes it both the place a bar the task mirror says the work is
+done with is dropped (see `progress.py::reconcile`) and the only place the
+mirror itself can be deleted without racing a tool call. A bar with no mirror
+behind it — the agent that has no task tool and ran `casper progress` itself —
+is deliberately left standing; `hooks/session-end.sh` is what clears that one.
 """
 import json
 import os
@@ -35,9 +37,12 @@ def main() -> None:
         path = progress.state_path(payload.get("session_id", "default"))
         tasks = list(progress.load(path).values())
         actions = progress.reconcile(tasks)
-        # Nothing in flight means the mirror describes work that is over, and
-        # no tool call is running to race the unlink. Anything left here now
-        # would outlive the session.
+        # Nothing in flight means the mirror holds no work still running —
+        # it emptied out, or never held anything — and no tool call is
+        # running to race the unlink. Anything left here now would outlive
+        # the session. Note this is a wider condition than the one that
+        # clears the bar: the mirror is this hook's own bookkeeping, so an
+        # empty one is always safe to drop.
         if progress.nothing_in_flight(tasks):
             progress.discard(path)
     except Exception:
