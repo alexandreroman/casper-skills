@@ -9,8 +9,8 @@ def commands(event):
 class TestHooksJson(unittest.TestCase):
     def test_declares_every_expected_event(self):
         for event in ("SessionStart", "UserPromptSubmit", "PreToolUse",
-                      "PostToolUse", "Stop", "SessionEnd", "Notification",
-                      "PermissionRequest"):
+                      "PostToolUse", "Stop", "StopFailure", "SessionEnd",
+                      "Notification", "PermissionRequest"):
             self.assertIn(event, HOOKS, f"{event} missing from hooks.json")
 
     def test_post_tool_use_matches_both_dialects(self):
@@ -27,6 +27,21 @@ class TestHooksJson(unittest.TestCase):
         # cannot be the one-line Bash script it used to be.
         for cmd in commands("Stop"):
             self.assertIn("hooks/stop.py", cmd)
+
+    def test_stop_failure_routes_to_its_own_entry_point(self):
+        # StopFailure fires instead of Stop when the turn dies on an API
+        # error, so it cannot share stop.py: that hook reconciles a turn that
+        # ended, and this one reports a turn that was killed.
+        for cmd in commands("StopFailure"):
+            self.assertIn("hooks/stop-failure.sh", cmd)
+
+    def test_stop_failure_is_the_only_unmatched_failure_event(self):
+        # PostToolUseFailure is deliberately not registered. A non-zero exit
+        # is routine — a grep with no match, a red test under TDD, `git diff
+        # --quiet` — and because turn end never writes over an `error`, one
+        # such call landing last in a turn would suppress the `done` the user
+        # is waiting on. See skills/casper/references/status.md.
+        self.assertNotIn("PostToolUseFailure", HOOKS)
 
     def test_notification_and_permission_request_share_one_entry_point(self):
         for event in ("Notification", "PermissionRequest"):

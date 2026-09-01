@@ -332,6 +332,12 @@ export function createHandlers({ client }) {
       }
 
       if (type === "session.error") {
+        // The counterpart of Claude Code's StopFailure: a turn that ended on
+        // an error instead of on an answer. Mirrors
+        // EVENT_ACTIONS["turn-error"] — the state and nothing else, with the
+        // bar left where the work stopped — and the conformance test pins the
+        // two together.
+        //
         // session.idle also fires around an error, so report error first and
         // clear the busy latch so the later idle does not overwrite it.
         busy = false

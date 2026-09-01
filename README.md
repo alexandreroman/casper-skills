@@ -85,7 +85,7 @@ lifecycle drives the workspace:
 | progress bar | the agent's own task, plan or todo list, mirrored step by step and cleared when the work is over — an agent whose harness has no such list drives the bar itself, and that bar stands until it clears it |
 | bar cleared | the session ends, whatever set the bar |
 | state, bar and info panel reset | a new session starts — a resume or a compact keeps the bar and the info panel, since that work is still the same |
-| sidebar **error** | opencode only; neither Claude Code nor Codex reports a state that means this |
+| sidebar **error** | the turn ends on an API error — a rate limit, an auth or billing problem, an overloaded model. Claude Code and opencode only; Codex has no event that reports one. Every other kind of failure stays the agent's own call |
 
 Apart from that last row the three agents behave identically.
 
