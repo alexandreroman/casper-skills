@@ -13,7 +13,10 @@ means depends on what the workspace is showing: a bar still up means work that
 outlives the turn, and a `blocked` or `error` is the agent's own verdict, which
 no hook can infer and none may overwrite. Both are read back over the CLI here
 (`agent_state`, `bar_is_up`) and decided in `progress.py::turn_end_actions`.
-session-end stays constant, and is the backstop for a bar turn-end leaves
+turn-error is the one turn ending that stays a constant, because a turn the
+API killed has nothing to weigh: the failure is the whole of what the
+workspace has to say, so `hooks/stop-failure.sh` reports it and reads nothing
+back. session-end stays constant, and is the backstop for a bar turn-end leaves
 standing: it clears the bar unconditionally, so nothing the agent set by hand
 can outlive the session.
 
@@ -29,6 +32,7 @@ import subprocess
 EVENT_ACTIONS: "dict[str, list[list[str]]]" = {
     "turn-start":    [["status", "set", "working"]],
     "tool-activity": [["status", "set", "working"]],
+    "turn-error":    [["status", "set", "error"]],
     "session-end":   [["status", "set", "done"], ["progress", "clear"]],
 }
 

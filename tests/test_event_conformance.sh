@@ -7,6 +7,8 @@
 # ending emits depends on what the workspace is showing, which hooks/stop.py
 # reads back before it decides. tests/test_stop.py covers it, and
 # tests/test_cross_agent_conformance.sh pins it against the opencode plugin.
+# `turn-error` is here for the opposite reason: the turn ending StopFailure
+# reports has nothing to weigh and nothing to read back.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$DIR/tests/lib/harness.sh"
@@ -26,5 +28,6 @@ print('\n'.join(' '.join(a) for a in EVENT_ACTIONS['$event']))
 
 check user-prompt-submit.sh turn-start
 check pre-tool-use.sh       tool-activity
+check stop-failure.sh       turn-error
 check session-end.sh        session-end
 echo "PASS"

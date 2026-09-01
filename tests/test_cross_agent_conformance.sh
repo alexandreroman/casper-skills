@@ -30,6 +30,30 @@ console.log(JSON.stringify(calls))
 [ "$got_start" = "$(expected_for turn-start)" ] || {
   echo "FAIL: turn-start mismatch"; echo "  expected $(expected_for turn-start)"; echo "  got      $got_start"; exit 1; }
 
+# session.error is opencode's counterpart to Claude Code's StopFailure: a turn
+# that ended on an error instead of on an answer. Both report the state and
+# stop there, leaving the bar where the work stopped. The hook side is pinned
+# against the table by tests/test_event_conformance.sh; this pins opencode's,
+# so neither agent can start reconciling or notifying without the other.
+got_error="$(node --input-type=module -e '
+import plugin from "./.opencode/plugin/casper.js"
+process.env.CASPER_WORKSPACE_ID = "test-ws"
+const calls = []
+const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+plugin.__test.setRunner((a) => calls.push(a))
+const ev = (type, properties) => ({ event: { type, properties } })
+await hooks.event(ev("session.created", { info: { id: "root" } }))
+await hooks.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+calls.length = 0
+await hooks.event(ev("session.error", { sessionID: "root" }))
+console.log(JSON.stringify(calls))
+')"
+
+[ "$got_error" = "$(expected_for turn-error)" ] || {
+  echo "FAIL: turn-error mismatch (EVENT_ACTIONS vs opencode session.error)"
+  echo "  expected $(expected_for turn-error)"; echo "  got      $got_error"; exit 1; }
+echo "  ok: turn-error matches (EVENT_ACTIONS == opencode session.error)"
+
 # progressActions (JS) must agree with actions_for (Python) on the same input.
 # "cancelled" only ever arrives from opencode, but the predicate that reads it
 # is shared, so both sides are held to it: a status one implementation counts
