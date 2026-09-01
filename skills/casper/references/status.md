@@ -17,6 +17,7 @@ When you judge you're in one of these states, call the CLI yourself:
 ```bash
 casper status set blocked
 casper status set error
+casper status get           # what the sidebar is showing right now
 casper notify --message "..."
 ```
 
@@ -27,6 +28,12 @@ someone, or something failed — which no lifecycle event can infer, so a turn
 ending is not allowed to overrule it. What does clear it is the next thing
 that genuinely knows better: your next turn, or your next tool call, both of
 which report `working` again.
+
+So a `blocked` lasts until you act again, and no longer. From there the
+progress bar decides what the end of that turn reports — a bar still up says
+`working`, no bar says `done` (see `references/progress.md`) — so a hold that
+outlasts a turn has to be re-stated, and a bar left standing over finished
+work reads as `working` rather than the `blocked` you meant.
 
 `casper notify` is an attention flag — keep its message to the one thing you
 need. If the detail behind it is worth keeping in view (what failed, what you
