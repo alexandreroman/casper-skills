@@ -68,9 +68,35 @@ By hand, the same thing is:
 ```
 
 Any Git spec works in that slot — `github:owner/repo`, `git+https://…`,
-`git+ssh://…` for a private clone, or a local path — and it tracks the branch
-head, so a new commit is picked up the next time opencode starts. The skill
-arrives with the plugin; there is nothing to install alongside it.
+`git+ssh://…` for a private clone, or a local path. The skill arrives with the
+plugin; there is nothing to install alongside it.
+
+A Git spec tracks the branch head: opencode re-resolves it every time it
+starts and refreshes its copy under `~/.cache/opencode/packages/`, so quitting
+and relaunching opencode is the whole update. To pull the new commit without
+starting a session — say, because Casper just asked you to update the
+integration — run the install command again; no `--force` is needed:
+
+```
+opencode plugin github:alexandreroman/casper-skills -g
+```
+
+Either way, an opencode session that is already running keeps the plugin it
+started with until you restart it.
+
+> [!WARNING]
+> If the install reports `Could not install "github:alexandreroman/casper-skills"`
+> and `NpmInstallFailedError`, opencode's cache directory sits behind a
+> symlink — a `~/.cache` that links elsewhere, or an `XDG_CACHE_HOME` that
+> goes through one (anything under `/tmp` on macOS does). opencode's npm step
+> then loses track of the package it just fetched: the install leaves the
+> config untouched, and even a hand-written config entry is skipped at every
+> start, silently. Point opencode at the resolved directory — in your shell
+> profile, so every start sees it — and install again:
+>
+> ```sh
+> export XDG_CACHE_HOME="$(cd "${XDG_CACHE_HOME:-$HOME/.cache}" && pwd -P)"
+> ```
 
 ## What it does
 
