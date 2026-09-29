@@ -1,6 +1,6 @@
 {
   "name": "casper-skills",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Casper integration for coding agents.",
   "type": "module",
   "main": ".opencode/plugin/casper.js",

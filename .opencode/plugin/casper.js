@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url"
 // Regex-stable on purpose: the Casper app probes the installed plugin file for
 // this exact line to decide whether the integration is current. Keep it on one
 // line, double-quoted, and in sync with package.json (a test asserts this).
-export const CASPER_PLUGIN_VERSION = "0.2.0"
+export const CASPER_PLUGIN_VERSION = "0.2.1"
 
 // Resolved against this module's own URL, not process.cwd(), so it works
 // regardless of the process's working directory and of where opencode
