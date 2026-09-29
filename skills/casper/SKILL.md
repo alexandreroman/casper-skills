@@ -35,14 +35,14 @@ prefix.
 
 ## Tell the user when you need them
 
-This is the one behaviour that matters most, so it lives here rather than in a
-reference file. When you need the user — a decision, a credential, an
-interactive login, an approval, or an unrecoverable error — say so out loud
-instead of waiting silently. Ending a turn to ask a question or present
-options is a blocked state, not a finished one.
+When you need the user — a decision, a credential, a login, an approval, or
+an unrecoverable error — say so instead of waiting silently. Ending a turn to
+ask a question or present options is a blocked state, not a finished one. A
+notification cannot be answered: ask the question itself in the conversation,
+and let the message say only what you need them for, never the question.
 
 ```bash
-casper notify --message "<what you need from them>"
+casper notify --message "<that you need them, and what for>"
 casper status set blocked   # when you're waiting on them mid-turn
 ```
 

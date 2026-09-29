@@ -9,6 +9,12 @@ class TestGuidance(unittest.TestCase):
     def test_mentions_the_notify_mechanism(self):
         self.assertIn("casper notify --message", TEXT)
 
+    def test_says_the_notification_cannot_be_answered(self):
+        # Agents put the question in the notification, where the user
+        # cannot reply; the question belongs in the conversation.
+        self.assertIn("I cannot reply to it", TEXT)
+        self.assertIn("in the conversation", TEXT)
+
     def test_mentions_blocked_status(self):
         self.assertIn("casper status set blocked", TEXT)
 

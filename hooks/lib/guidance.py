@@ -22,8 +22,13 @@ present options: that is a blocked state, not a finished one, so notify me.
 Both commands, together, are the notification — the flag tells me something
 needs me, the state is what makes the sidebar say so:
 
-  casper notify --message "<what you need from me>"
+  casper notify --message "<that you need me, and what for>"
   casper status set blocked   # every time you end a turn waiting on me
+
+The notification only tells me to come back — I cannot reply to it. Ask the
+question itself, with its options, in the conversation, where I can answer.
+The message says that you need me and what about ("Need your decision on
+the cache strategy"), never the question to answer.
 
 If your work breaks into several distinct steps and isn't over in a single
 action, track it with your task, plan, or todo tool — that tool is how the

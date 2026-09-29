@@ -47,6 +47,9 @@ echo "$desc" | grep -qi "before the first .casper. command" \
 # It has to work before any reference file is read, so it stays inline.
 grep -q "casper notify --message" "$FILE" || fail "the notify rule must be inline, not deferred to a reference"
 grep -q "casper status set blocked" "$FILE" || fail "the blocked rule must be inline, not deferred to a reference"
+# The user cannot reply to a notification, so the question itself must be
+# asked in the conversation, not in the notify message.
+grep -q "cannot be answered" "$FILE" || fail "the entry skill must say the notification cannot be answered"
 
 # The guard rule, likewise: every command below it depends on it.
 grep -q "CASPER_WORKSPACE_ID" "$FILE" || fail "missing guard-rule mention in the body"

@@ -46,7 +46,10 @@ outlasts a turn has to be re-stated, and a bar left standing over finished
 work reads as `working` rather than the `blocked` you meant.
 
 `casper notify` is an attention flag — keep its message to the one thing you
-need. If the detail behind it is worth keeping in view (what failed, what you
-tried, what's left), publish that in the workspace's info panel as well — see
+need. It is one-way: the user cannot reply to it, so never put a question in
+it. Ask the question in the conversation, and let the message say only that
+a question is waiting for them there, and what about. If the detail behind it
+is worth keeping in view (what failed, what you tried, what's left), publish
+that in the workspace's info panel as well — see
 `references/info.md`. Report it in the conversation too: the panel is
 in-memory only and is lost if Casper restarts.
