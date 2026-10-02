@@ -79,7 +79,8 @@ automatically.**
 Running several workspaces that each bind **host ports** (dev server,
 database, `docker compose` published ports)? They will collide unless the
 repo derives its ports off **`CASPER_PORT`**, the collision-free base Casper
-injects per workspace (a reserved band of 10, `CASPER_PORT`..`CASPER_PORT+10`).
+injects per worktree workspace (a reserved band of 10,
+`CASPER_PORT`..`CASPER_PORT+9`).
 See `references/repo-config.md`'s "Port remapping in parallel workspaces" section.
 
 ### Default to launching a new agent instance there
