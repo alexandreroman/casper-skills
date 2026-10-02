@@ -78,22 +78,26 @@ endpoint — will otherwise have those workspaces collide: the second `run` dies
 with "address already in use", or two workspaces silently share one backend.
 
 Casper handles the base case. It injects **`CASPER_PORT`** into every
-workspace's environment (available in `setup`, `run`, and every named script),
-unique per workspace, and **pre-reserves a band of 10 ports** — `CASPER_PORT`
-through `CASPER_PORT + 10` — so a workspace can spread its services across that
-range without ever colliding with another workspace.
+worktree workspace's environment (available in `setup`, `run`, and every named
+script), unique per workspace, and **pre-reserves a band of exactly 10
+ports**, the base included — `CASPER_PORT` through `CASPER_PORT + 9` — so a
+workspace can spread its services across that range without ever colliding
+with another workspace. `CASPER_PORT + 10` already belongs to the next
+workspace's band. The Space's primary workspace — the repository's main
+working tree — gets no `CASPER_PORT` and keeps the project's default ports.
 
 ### The pattern
 
 1. **Derive every port from the base by a fixed offset** — never hard-code.
-   Service *N* listens on `CASPER_PORT + N`. Keep all offsets within `+0..+10`
-   (the reserved band); a project needing more than 11 distinct host ports has
+   Service *N* listens on `CASPER_PORT + N`. Keep all offsets within `+0..+9`
+   (the reserved band); a project needing more than 10 distinct host ports has
    outgrown it and needs a different strategy.
 2. **Remap only genuinely *published* ports.** Ports reachable only inside a
    container network (Docker `expose:`, not `ports:`) never collide across
    workspaces — leave them alone. Only the host-published ones need remapping.
 3. **Do the remap in the `setup` hook**, guarded so it's a no-op outside
-   Casper (`CASPER_PORT` unset in a plain checkout):
+   a worktree workspace (`CASPER_PORT` unset in a plain checkout or the
+   primary workspace):
 
    ```bash
    [ -n "$CASPER_PORT" ] && <write the remap>
