@@ -41,6 +41,21 @@ const SKILLS_DIR = fileURLToPath(new URL("../../skills", import.meta.url))
 
 const BLOCKED_EVENTS = new Set(["permission.asked", "permission.updated"])
 
+// Mirrors hooks/lib/notified.py::_CASPER_CALL: a `casper` invocation in
+// command position, so a `grep "casper notify"` does not read as one.
+const CASPER_CALL = /(?:^|[;&|(\n])\s*casper\s+([a-z]+)/g
+
+/**
+ * The `casper` subcommands a tool call runs, in order. Empty for none.
+ * Mirrors hooks/lib/notified.py::casper_subcommands.
+ */
+export function casperSubcommands(args) {
+  let command = args?.command
+  if (Array.isArray(command)) command = command.map(String).join("\n")
+  if (typeof command !== "string") return []
+  return [...command.matchAll(CASPER_CALL)].map((m) => m[1])
+}
+
 // Default runner: fire-and-forget, detached, every failure swallowed.
 let runner = (args) => {
   try {
@@ -165,6 +180,12 @@ export function createHandlers({ client }) {
   // in memory here for the same reason the Claude/Codex path keeps a mirror
   // on disk: the turn-end event carries no task state of its own.
   let todos = []
+  // Whether the agent already ran `casper notify` for the wait it is about to
+  // open: null, "armed" or "attached". The same three states, and the same
+  // reason, as hooks/lib/notified.py; in memory here, since this plugin lives
+  // as long as the session does. A permission asked while it stands still
+  // reports blocked, but the agent's own message is the only notification.
+  let notified = null
 
   const run = (args) => { if (inWorkspace()) runner(args) }
   const query = (args) => (inWorkspace() ? querier(args) : null)
@@ -181,6 +202,19 @@ export function createHandlers({ client }) {
     const bar = query(["progress", "get"])
     const barUp = Boolean(bar && typeof bar === "object" && bar.progress != null)
     for (const args of turnEndActions(todos, state, barUp)) run(args)
+    notified = null
+  }
+
+  // Advance `notified` for one tool call, as hooks/lib/notified.py's
+  // observe_tool does. A call that only runs `casper` is bookkeeping and
+  // leaves it alone. opencode asks a permission before the tool's own
+  // tool.execute.before, so the dialog the agent announced lands while the
+  // marker is still "armed".
+  const observeTool = (args) => {
+    const subcommands = casperSubcommands(args)
+    if (subcommands.includes("notify")) notified = "armed"
+    else if (subcommands.length > 0) return
+    else notified = notified === "armed" ? "attached" : null
   }
 
   // A lookup that fails or hangs must not be retried on every later event on
@@ -253,11 +287,12 @@ export function createHandlers({ client }) {
     // clears it once the user has replied, and setting `busy` true again
     // (idempotently, if a busy event already set it) keeps the turn-end
     // path firing exactly one `done`.
-    async "tool.execute.before"(input) {
+    async "tool.execute.before"(input, output) {
       const sessionID = input?.sessionID ?? null
       if (!(await resolveRoot(sessionID))) return
       busy = true
       run(["status", "set", "working"])
+      observeTool(output?.args)
     },
 
     async event({ event }) {
@@ -273,6 +308,7 @@ export function createHandlers({ client }) {
         rootSessionID = sessionID
         busy = false
         todos = []
+        notified = null
         run(["status", "set", "idle"])
         run(["progress", "clear"])
         run(["info", "clear"])
@@ -298,6 +334,7 @@ export function createHandlers({ client }) {
         rootSessionID = null
         busy = false
         todos = []
+        notified = null
         return
       }
 
@@ -314,6 +351,7 @@ export function createHandlers({ client }) {
         if (kind === "busy") {
           if (busy) return
           busy = true
+          notified = null
           run(["status", "set", "working"])
         } else if (kind === "idle") {
           if (!busy) return
@@ -341,12 +379,14 @@ export function createHandlers({ client }) {
         // session.idle also fires around an error, so report error first and
         // clear the busy latch so the later idle does not overwrite it.
         busy = false
+        notified = null
         run(["status", "set", "error"])
         return
       }
 
       if (BLOCKED_EVENTS.has(type)) {
         run(["status", "set", "blocked"])
+        if (notified) return
         const tool = props.tool ?? props.permission?.type ?? "an action"
         run(["notify", "--message", `The agent needs your approval: ${tool}`])
       }

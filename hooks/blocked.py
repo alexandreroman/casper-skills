@@ -1,9 +1,28 @@
 #!/usr/bin/env python3
 """Report the blocked state: the agent is waiting on the user mid-turn.
 
-Claude Code routes every kind of notice through one Notification event, so its
-payloads need a strict allowlist. Codex has a typed PermissionRequest event,
-which by definition already means "waiting on the user" and needs no filter.
+One wait must reach the user as one notification, and the two agents that run
+this hook announce a wait differently:
+
+  - Codex fires PermissionRequest when it shows a permission prompt, and
+    nothing else. That event alone means "waiting on the user", so it reports
+    blocked and notifies.
+  - Claude Code fires two events for every dialog, AskUserQuestion included:
+    PermissionRequest as the dialog opens, then Notification with
+    notification_type `permission_prompt` ("Claude needs your permission")
+    about 6 seconds later, and only if the dialog is still unanswered by then.
+    PermissionRequest reports blocked straight away. The Notification is the
+    one that notifies, so a prompt the user answers within those seconds
+    costs them no notification at all. Notification carries every other kind
+    of notice too, so its types need a strict allowlist.
+
+Either way, when the agent already ran `casper notify` for this wait, the hook
+still reports blocked but leaves the notifying to the agent, whose message
+says what it needs (hooks/lib/notified.py).
+
+Codex is told apart by PLUGIN_ROOT, its own name for the plugin root: Codex
+sets it next to the CLAUDE_PLUGIN_ROOT compatibility mirror, Claude Code sets
+only the latter.
 """
 import json
 import os
@@ -11,7 +30,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from hooks.lib import casper
+from hooks.lib import casper, notified
 
 # Only these two mean "waiting on the user mid-task for something other than
 # the next prompt". Every other type, including idle_prompt, auth_success, and
@@ -29,6 +48,10 @@ FRIENDLY = {
 }
 
 
+def _is_codex() -> bool:
+    return bool(os.environ.get("PLUGIN_ROOT"))
+
+
 def _message(payload) -> str:
     """Prefer the agent's own wording; fall back to something specific."""
     if payload.get("message"):
@@ -44,6 +67,15 @@ def _message(payload) -> str:
                         "The agent needs your attention")
 
 
+def _agent_notified(payload) -> bool:
+    try:
+        return notified.agent_notified(payload.get("session_id", "default"))
+    except Exception:
+        # Unreadable state reads as "not notified": a duplicate notification
+        # beats a wait nobody hears about.
+        return False
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -55,13 +87,19 @@ def main() -> None:
     if event == "Notification":
         if payload.get("notification_type") not in BLOCKING_NOTIFICATION_TYPES:
             return
-    elif event != "PermissionRequest":
+        should_notify = True
+    elif event == "PermissionRequest":
+        # Under Claude Code the same dialog's Notification follows if the user
+        # does not answer it, and that one notifies.
+        should_notify = _is_codex()
+    else:
         return
 
     # Two sequential casper calls share the hook's 3s budget (hooks.json), so
     # cap each at 1s: even a stalled first call leaves room for the notify.
     casper.run(["status", "set", "blocked"], timeout=1)
-    casper.run(["notify", "--message", _message(payload)], timeout=1)
+    if should_notify and not _agent_notified(payload):
+        casper.run(["notify", "--message", _message(payload)], timeout=1)
 
 
 if __name__ == "__main__":

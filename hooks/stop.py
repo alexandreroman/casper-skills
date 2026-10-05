@@ -31,7 +31,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from hooks.lib import casper, progress
+from hooks.lib import casper, notified, progress
 
 
 def main() -> None:
@@ -57,6 +57,14 @@ def main() -> None:
     bar_up = casper.bar_is_up(timeout=1)
     for args in progress.turn_end_actions(tasks, state, bar_up):
         casper.run(args, timeout=1)
+
+    # A wait the agent announced with its own `casper notify` ends with the
+    # turn; a prompt in a later turn is one the user has not been told about
+    # (hooks/lib/notified.py).
+    try:
+        notified.clear(payload.get("session_id", "default"))
+    except Exception:
+        pass
 
     # Nothing in flight means the mirror holds no work still running — it
     # emptied out, or never held anything — and no tool call is running to

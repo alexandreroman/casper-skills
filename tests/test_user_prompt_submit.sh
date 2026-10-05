@@ -4,6 +4,6 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$DIR/tests/lib/harness.sh"
 
 casper_stub_init
-"$DIR/hooks/user-prompt-submit.sh"
+echo '{"session_id":"s"}' | CLAUDE_PLUGIN_DATA="$(mktemp -d)" "$DIR/hooks/user-prompt-submit.sh"
 assert_casper_calls "status set working"
 echo "PASS"

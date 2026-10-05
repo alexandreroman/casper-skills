@@ -252,6 +252,54 @@ describe("tool.execute.before", () => {
     assert.deepEqual(calls, [...READS, ["status", "set", "done"]])
   })
 
+  // The agent's own `casper notify` is the one notification of the wait it
+  // announces; hooks/lib/notified.py keeps the same rule for the other agents.
+  describe("after the agent's own casper notify", () => {
+    const tool = (h, command) =>
+      h["tool.execute.before"]({ tool: "bash", sessionID: "root", callID: "1" }, { args: { command } })
+    const permission = async (h) => {
+      calls.length = 0
+      await h.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
+      return calls
+    }
+    const started = async () => {
+      const h = await build()
+      await h.event(ev("session.created", { info: { id: "root" } }))
+      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      return h
+    }
+
+    test("a permission asked next only reports blocked", async () => {
+      const h = await started()
+      await tool(h, 'casper notify --message "Need your approval to deploy"')
+      await tool(h, "casper status set blocked")
+      assert.deepEqual(await permission(h), [["status", "set", "blocked"]])
+    })
+
+    test("the approved tool call is still covered, the one after it is not", async () => {
+      const h = await started()
+      await tool(h, 'casper notify --message "x"')
+      await tool(h, "make deploy")
+      assert.deepEqual(await permission(h), [["status", "set", "blocked"]])
+      await tool(h, "make test")
+      assert.equal((await permission(h)).length, 2)
+    })
+
+    test("mentioning casper notify is not notifying", async () => {
+      const h = await started()
+      await tool(h, 'grep -rn "casper notify" skills/')
+      assert.equal((await permission(h)).length, 2)
+    })
+
+    test("turn end ends the episode", async () => {
+      const h = await started()
+      await tool(h, 'casper notify --message "x"')
+      await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      assert.equal((await permission(h)).length, 2)
+    })
+  })
+
   test("on a child session it is ignored", async () => {
     const h = await build()
     await h.event(ev("session.created", { info: { id: "root" } }))
