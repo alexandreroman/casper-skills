@@ -41,6 +41,32 @@ const SKILLS_DIR = fileURLToPath(new URL("../../skills", import.meta.url))
 
 const BLOCKED_EVENTS = new Set(["permission.asked", "permission.updated"])
 
+// Mirrors hooks/lib/notified.py::_CASPER_CALL: a `casper` invocation in
+// command position, so a `grep "casper notify"` does not read as one.
+const CASPER_CALL = /(?:^|[;&|(\n])\s*casper\s+([a-z]+)/g
+
+/**
+ * The `casper` subcommands a tool call runs, in order. Empty for none.
+ * Mirrors hooks/lib/notified.py::casper_subcommands.
+ */
+export function casperSubcommands(args) {
+  let command = args?.command
+  if (Array.isArray(command)) command = command.map(String).join("\n")
+  if (typeof command !== "string") return []
+  return [...command.matchAll(CASPER_CALL)].map((m) => m[1])
+}
+
+// What a permission is for, as its event names it. opencode 1.18.34 sends the
+// permission's kind as a string (`permission: "bash"`) and `tool` as a
+// reference to the call ({ messageID, callID }); older releases sent `tool`
+// as a name, or `permission` as an object with a `type`.
+function permissionName(props) {
+  if (typeof props.tool === "string") return props.tool
+  if (typeof props.permission === "string") return props.permission
+  if (typeof props.permission?.type === "string") return props.permission.type
+  return "an action"
+}
+
 // Default runner: fire-and-forget, detached, every failure swallowed.
 let runner = (args) => {
   try {
@@ -165,6 +191,12 @@ export function createHandlers({ client }) {
   // in memory here for the same reason the Claude/Codex path keeps a mirror
   // on disk: the turn-end event carries no task state of its own.
   let todos = []
+  // Whether the agent already ran `casper notify` for the wait it is about to
+  // open: null, "armed" or "attached". The same three states, and the same
+  // reason, as hooks/lib/notified.py; in memory here, since this plugin lives
+  // as long as the session does. A permission asked while it stands still
+  // reports blocked, but the agent's own message is the only notification.
+  let notified = null
 
   const run = (args) => { if (inWorkspace()) runner(args) }
   const query = (args) => (inWorkspace() ? querier(args) : null)
@@ -181,6 +213,19 @@ export function createHandlers({ client }) {
     const bar = query(["progress", "get"])
     const barUp = Boolean(bar && typeof bar === "object" && bar.progress != null)
     for (const args of turnEndActions(todos, state, barUp)) run(args)
+    notified = null
+  }
+
+  // Advance `notified` for one tool call, as hooks/lib/notified.py's
+  // observe_tool does. A call that only runs `casper` is bookkeeping and
+  // leaves it alone. As on the other agents, tool.execute.before runs before
+  // the call's permission is asked, so the dialog the agent announced lands
+  // while the marker is "attached".
+  const observeTool = (args) => {
+    const subcommands = casperSubcommands(args)
+    if (subcommands.includes("notify")) notified = "armed"
+    else if (subcommands.length > 0) return
+    else notified = notified === "armed" ? "attached" : null
   }
 
   // A lookup that fails or hangs must not be retried on every later event on
@@ -246,18 +291,19 @@ export function createHandlers({ client }) {
       }
     },
 
-    // Fires immediately before opencode runs a tool call — including the
-    // one a just-approved permission unblocked. Unconditionally reassert
-    // "working" here, exactly like Claude Code and Codex's PreToolUse hook
-    // does with no dedup of its own: a blocked state has nothing else that
-    // clears it once the user has replied, and setting `busy` true again
-    // (idempotently, if a busy event already set it) keeps the turn-end
-    // path firing exactly one `done`.
-    async "tool.execute.before"(input) {
+    // Fires as a tool call starts, before any permission it needs is asked
+    // (measured on opencode 1.18.34), just like Claude Code and Codex's
+    // PreToolUse. Unconditionally reassert "working" here, exactly like
+    // that hook does with no dedup of its own, and set `busy` true again
+    // (idempotently, if a busy event already set it) so the turn-end path
+    // fires exactly one `done`. The `blocked` a permission reports is lifted
+    // by permission.replied, below.
+    async "tool.execute.before"(input, output) {
       const sessionID = input?.sessionID ?? null
       if (!(await resolveRoot(sessionID))) return
       busy = true
       run(["status", "set", "working"])
+      observeTool(output?.args)
     },
 
     async event({ event }) {
@@ -273,6 +319,7 @@ export function createHandlers({ client }) {
         rootSessionID = sessionID
         busy = false
         todos = []
+        notified = null
         run(["status", "set", "idle"])
         run(["progress", "clear"])
         run(["info", "clear"])
@@ -298,6 +345,7 @@ export function createHandlers({ client }) {
         rootSessionID = null
         busy = false
         todos = []
+        notified = null
         return
       }
 
@@ -314,6 +362,7 @@ export function createHandlers({ client }) {
         if (kind === "busy") {
           if (busy) return
           busy = true
+          notified = null
           run(["status", "set", "working"])
         } else if (kind === "idle") {
           if (!busy) return
@@ -341,14 +390,26 @@ export function createHandlers({ client }) {
         // session.idle also fires around an error, so report error first and
         // clear the busy latch so the later idle does not overwrite it.
         busy = false
+        notified = null
         run(["status", "set", "error"])
         return
       }
 
       if (BLOCKED_EVENTS.has(type)) {
         run(["status", "set", "blocked"])
-        const tool = props.tool ?? props.permission?.type ?? "an action"
-        run(["notify", "--message", `The agent needs your approval: ${tool}`])
+        if (notified) return
+        run(["notify", "--message", `The agent needs your approval: ${permissionName(props)}`])
+        return
+      }
+
+      // The counterpart of hooks/lib/dialog.py, with the event the hooks do
+      // not get: the user answered. An approved call runs now, so the turn is
+      // working again; rejected, the turn stops and waits to be told what to
+      // do instead, which is still `blocked`. Turn end never writes over that.
+      if (type === "permission.replied") {
+        if (props.reply === "once" || props.reply === "always") {
+          run(["status", "set", "working"])
+        }
       }
     },
   }

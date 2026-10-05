@@ -133,10 +133,15 @@ def turn_end_actions(tasks, state, bar_up):
     return [["status", "set", "working" if still_up else "done"]] + clears
 
 
+def data_dir() -> str:
+    """Where the hooks keep per-session state. hooks/*.sh hardcode the same."""
+    return os.environ.get("CLAUDE_PLUGIN_DATA") or "/tmp/casper-skills"
+
+
 def state_path(session_id: str) -> str:
-    data_dir = os.environ.get("CLAUDE_PLUGIN_DATA") or "/tmp/casper-skills"
-    os.makedirs(data_dir, exist_ok=True)
-    return os.path.join(data_dir, f"{session_id}.json")
+    directory = data_dir()
+    os.makedirs(directory, exist_ok=True)
+    return os.path.join(directory, f"{session_id}.json")
 
 
 def load(path):

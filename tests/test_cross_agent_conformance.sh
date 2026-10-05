@@ -121,8 +121,11 @@ console.log(JSON.stringify(calls))
 echo "  ok: session-start triple matches (hooks/session-start.py == opencode session.created)"
 
 # Same tool name, no description, on both sides so the notify message text
-# lines up too and the full argv can be compared, not just its shape.
-py_blocked="$(run_py_hook hooks/blocked.py '{"hook_event_name":"PermissionRequest","tool_name":"bash"}')"
+# lines up too and the full argv can be compared, not just its shape. Codex is
+# the hook side's counterpart here: under Claude Code, PermissionRequest only
+# reports blocked and the dialog's later Notification notifies, which opencode
+# has no event for. PLUGIN_ROOT is how blocked.py tells Codex apart.
+py_blocked="$(PLUGIN_ROOT=/plugins/casper run_py_hook hooks/blocked.py '{"hook_event_name":"PermissionRequest","tool_name":"bash"}')"
 js_blocked="$(node --input-type=module -e '
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
@@ -132,7 +135,9 @@ plugin.__test.setRunner((a) => calls.push(a))
 const ev = (type, properties) => ({ event: { type, properties } })
 await hooks.event(ev("session.created", { info: { id: "root" } }))
 calls.length = 0
-await hooks.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
+await hooks.event(ev("permission.asked", {
+  sessionID: "root", permission: "bash", tool: { messageID: "m", callID: "c" },
+}))
 console.log(JSON.stringify(calls))
 ')"
 
@@ -140,6 +145,91 @@ console.log(JSON.stringify(calls))
   echo "FAIL: blocked pair mismatch (hooks/blocked.py vs opencode permission.asked)"
   echo "  py $py_blocked"; echo "  js $js_blocked"; exit 1; }
 echo "  ok: blocked pair matches (hooks/blocked.py == opencode permission.asked)"
+
+# The agent ran `casper notify` itself, then a permission is asked: the
+# agent's message is the wait's one notification, so both sides report
+# blocked and stop there. Each side sees the same tool calls first, through
+# its own hook (PreToolUse, tool.execute.before); only the permission's own
+# calls are compared.
+py_notified="$(python3 - <<'PY'
+import json, shutil, subprocess, sys, tempfile
+sys.path.insert(0, "tests/lib")
+from harness import CasperStub
+data = tempfile.mkdtemp()
+tool = lambda command: json.dumps({"session_id": "s", "tool_name": "Bash",
+                                   "tool_input": {"command": command}})
+with CasperStub() as stub:
+    env = stub.env(CLAUDE_PLUGIN_DATA=data, PLUGIN_ROOT="/plugins/casper")
+    for command in ['casper notify --message "x"', "casper status set blocked"]:
+        subprocess.run(["hooks/pre-tool-use.sh"], input=tool(command), env=env, text=True)
+with CasperStub() as stub:
+    subprocess.run(["hooks/blocked.py"], env=stub.env(CLAUDE_PLUGIN_DATA=data, PLUGIN_ROOT="/plugins/casper"),
+                   input=json.dumps({"session_id": "s", "hook_event_name": "PermissionRequest",
+                                     "tool_name": "bash"}), text=True)
+    print(json.dumps(stub.calls, separators=(",", ":")))
+shutil.rmtree(data, ignore_errors=True)
+PY
+)"
+js_notified="$(node --input-type=module -e '
+import plugin from "./.opencode/plugin/casper.js"
+process.env.CASPER_WORKSPACE_ID = "test-ws"
+const calls = []
+const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+plugin.__test.setRunner((a) => calls.push(a))
+const ev = (type, properties) => ({ event: { type, properties } })
+await hooks.event(ev("session.created", { info: { id: "root" } }))
+for (const command of ["casper notify --message \"x\"", "casper status set blocked"]) {
+  await hooks["tool.execute.before"]({ tool: "bash", sessionID: "root", callID: "1" }, { args: { command } })
+}
+calls.length = 0
+await hooks.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
+console.log(JSON.stringify(calls))
+')"
+
+[ "$py_notified" = "$js_notified" ] && [ "$py_notified" = '[["status","set","blocked"]]' ] || {
+  echo "FAIL: agent-notified permission mismatch (hooks/blocked.py vs opencode permission.asked)"
+  echo "  py $py_notified"; echo "  js $js_notified"; exit 1; }
+echo "  ok: a permission after the agent's own notify only reports blocked, on both sides"
+
+# The user approves: the call runs and the turn is working again. The hooks
+# learn it from the approved tool's PostToolUse (hooks/lib/dialog.py), opencode
+# from permission.replied; both must say the same thing.
+py_approved="$(python3 - <<'PY'
+import json, shutil, subprocess, sys, tempfile
+sys.path.insert(0, "tests/lib")
+from harness import CasperStub
+data = tempfile.mkdtemp()
+call = {"session_id": "s", "tool_name": "Bash", "tool_input": {"command": "touch b.txt"}}
+with CasperStub() as stub:
+    env = stub.env(CLAUDE_PLUGIN_DATA=data, PLUGIN_ROOT="/plugins/casper")
+    subprocess.run(["hooks/blocked.py"], env=env, text=True,
+                   input=json.dumps({**call, "hook_event_name": "PermissionRequest"}))
+with CasperStub() as stub:
+    env = stub.env(CLAUDE_PLUGIN_DATA=data, PLUGIN_ROOT="/plugins/casper")
+    subprocess.run(["hooks/post-tool-use.sh"], env=env, text=True,
+                   input=json.dumps({**call, "hook_event_name": "PostToolUse"}))
+    print(json.dumps(stub.calls, separators=(",", ":")))
+shutil.rmtree(data, ignore_errors=True)
+PY
+)"
+js_approved="$(node --input-type=module -e '
+import plugin from "./.opencode/plugin/casper.js"
+process.env.CASPER_WORKSPACE_ID = "test-ws"
+const calls = []
+const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+plugin.__test.setRunner((a) => calls.push(a))
+const ev = (type, properties) => ({ event: { type, properties } })
+await hooks.event(ev("session.created", { info: { id: "root" } }))
+await hooks.event(ev("permission.asked", { sessionID: "root", permission: "bash" }))
+calls.length = 0
+await hooks.event(ev("permission.replied", { sessionID: "root", requestID: "p", reply: "once" }))
+console.log(JSON.stringify(calls))
+')"
+
+[ "$py_approved" = "$js_approved" ] && [ "$py_approved" = '[["status","set","working"]]' ] || {
+  echo "FAIL: approved-dialog mismatch (hooks/post-tool-use.sh vs opencode permission.replied)"
+  echo "  py $py_approved"; echo "  js $js_approved"; exit 1; }
+echo "  ok: an approved dialog reports working again, on both sides"
 
 # turn-end left EVENT_ACTIONS entirely: what a turn ending means depends on
 # what the workspace is showing. Both agents read it back — the state, then
