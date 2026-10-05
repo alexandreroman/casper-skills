@@ -53,6 +53,15 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/post-tool-use.sh\" || true",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "Stop": [

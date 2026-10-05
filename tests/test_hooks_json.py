@@ -18,9 +18,19 @@ class TestHooksJson(unittest.TestCase):
         self.assertIn("TaskCreate|TaskUpdate", matchers)
         self.assertIn("update_plan", matchers)
 
-    def test_both_post_tool_use_groups_route_to_tasks(self):
-        for cmd in commands("PostToolUse"):
-            self.assertIn("hooks/tasks.py", cmd)
+    def test_both_matched_post_tool_use_groups_route_to_tasks(self):
+        for group in HOOKS["PostToolUse"]:
+            if group.get("matcher"):
+                for hook in group["hooks"]:
+                    self.assertIn("hooks/tasks.py", hook["command"])
+
+    def test_every_tool_call_reaches_post_tool_use_sh(self):
+        # The one hook that sees a dialog's tool finish, so it is what lifts
+        # the `blocked` hooks/blocked.py reported for it (hooks/lib/dialog.py).
+        unmatched = [h["command"] for g in HOOKS["PostToolUse"] if not g.get("matcher")
+                     for h in g["hooks"]]
+        self.assertEqual(len(unmatched), 1)
+        self.assertIn("hooks/post-tool-use.sh", unmatched[0])
 
     def test_stop_routes_to_the_reconciling_entry_point(self):
         # Stop reads the session's task mirror off stdin's session_id, so it

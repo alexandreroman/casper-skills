@@ -197,6 +197,62 @@ class TestCodexAgentAlreadyNotified(HookTest):
                                        "tool_name": "shell"}), [BLOCKED])
 
 
+class TestDialogBlocked(HookTest):
+    """A dialog's `blocked` ends with the dialog (hooks/lib/dialog.py).
+
+    Nothing fires when the user answers: an approved tool reports back only
+    through its PostToolUse once it has run, a denial not at all.
+    """
+
+    def run_hook(self, script, payload):
+        with CasperStub() as stub:
+            proc = self.hook(stub, script, payload)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            return stub.calls
+
+    def test_the_approved_tool_finishing_reports_working(self):
+        self.blocked({**ASK_PERMISSION, "tool_name": "Bash"})
+        self.assertEqual(self.run_hook("post-tool-use.sh", bash("make deploy")),
+                         [["status", "set", "working"]])
+        # Once only: the next tool to finish has no dialog behind it.
+        self.assertEqual(self.run_hook("post-tool-use.sh", bash("make test")), [])
+
+    def test_an_answered_question_reports_working(self):
+        self.blocked(ASK_PERMISSION)
+        self.blocked(PERMISSION_PROMPT)
+        self.assertEqual(self.run_hook("post-tool-use.sh", ASK),
+                         [["status", "set", "working"]])
+
+    def test_a_tool_with_no_dialog_finishing_does_nothing(self):
+        # The agent's own `casper status set blocked` opens no dialog marker,
+        # so the call that set it finishing must leave it standing.
+        self.assertEqual(self.run_hook("post-tool-use.sh",
+                                       bash("casper status set blocked")), [])
+
+    def test_the_next_tool_call_closes_the_dialog(self):
+        self.blocked(ASK_PERMISSION)
+        self.tools(bash("ls"))
+        self.assertEqual(self.run_hook("post-tool-use.sh", bash("ls")), [])
+
+    def test_the_next_prompt_closes_the_dialog(self):
+        self.blocked(ASK_PERMISSION)
+        self.run_hook("user-prompt-submit.sh", {"session_id": "s1"})
+        self.assertEqual(self.run_hook("post-tool-use.sh", bash("ls")), [])
+
+    def test_another_sessions_dialog_is_not_this_one(self):
+        self.blocked({**ASK_PERMISSION, "session_id": "other"})
+        self.assertEqual(self.run_hook("post-tool-use.sh", bash("ls")), [])
+
+    def test_session_end_removes_the_marker(self):
+        self.blocked(ASK_PERMISSION)
+        self.run_hook("session-end.sh", {"session_id": "s1"})
+        self.assertEqual(os.listdir(self.data_dir), [])
+
+
+class TestCodexDialogBlocked(TestDialogBlocked):
+    codex = True
+
+
 class TestOtherHookEvents(HookTest):
     def test_non_notification_non_permission_event_makes_no_call(self):
         self.assertEqual(self.blocked({"hook_event_name": "Stop"}), [])

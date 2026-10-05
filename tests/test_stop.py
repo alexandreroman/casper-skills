@@ -98,6 +98,21 @@ class TestStop(unittest.TestCase):
             self.fire(stub, status="blocked", bar=True)
             self.assertEqual(stub.calls, READS)
 
+    def test_a_dialogs_blocked_is_reported_over(self):
+        # hooks/blocked.py reported `blocked` for a dialog, and no hook saw it
+        # close: the agent asserted nothing, so the turn ends like any other.
+        open(os.path.join(self.data_dir, "s1.dialog"), "w").close()
+        with CasperStub() as stub:
+            self.fire(stub, status="blocked")
+            self.assertEqual(stub.calls, READS + [DONE])
+        self.assertFalse(os.path.exists(os.path.join(self.data_dir, "s1.dialog")))
+
+    def test_another_sessions_dialog_does_not_lift_this_blocked(self):
+        open(os.path.join(self.data_dir, "other.dialog"), "w").close()
+        with CasperStub() as stub:
+            self.fire(stub, status="blocked")
+            self.assertEqual(stub.calls, READS)
+
     def test_an_error_state_is_not_reported_over_but_the_bar_is_reconciled(self):
         self.mirror("s1", {"1": {"label": "a", "status": "completed"}})
         with CasperStub() as stub:

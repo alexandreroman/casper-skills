@@ -5,7 +5,9 @@ What a turn ending means is not a constant, so this hook reads the workspace
 before it writes to it (`progress.py::turn_end_actions` holds the rule):
 
   - a `blocked` or `error` on the sidebar is the agent's own verdict about
-    something outside the turn, so nothing is reported over it;
+    something outside the turn, so nothing is reported over it — except a
+    `blocked` hooks/blocked.py reported for a dialog that no hook saw close
+    (hooks/lib/dialog.py), which is over now that the turn is;
   - a progress bar still up means work that outlives the turn — background
     subagents left running — so the turn ends `working`;
   - anything else ends `done`.
@@ -31,7 +33,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from hooks.lib import casper, notified, progress
+from hooks.lib import casper, dialog, notified, progress
 
 
 def main() -> None:
@@ -55,6 +57,14 @@ def main() -> None:
     # no single call may spend it all.
     state = casper.agent_state(timeout=1)
     bar_up = casper.bar_is_up(timeout=1)
+    try:
+        dialog_ended = dialog.close(payload.get("session_id", "default"))
+    except Exception:
+        dialog_ended = False
+    if state == "blocked" and dialog_ended:
+        # A dialog's `blocked`, left standing because its tool never reported
+        # back. The agent asserted nothing, so the turn ends like any other.
+        state = None
     for args in progress.turn_end_actions(tasks, state, bar_up):
         casper.run(args, timeout=1)
 

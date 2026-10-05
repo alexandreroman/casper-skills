@@ -20,6 +20,11 @@ Either way, when the agent already ran `casper notify` for this wait, the hook
 still reports blocked but leaves the notifying to the agent, whose message
 says what it needs (hooks/lib/notified.py).
 
+Nothing fires when the user answers the dialog, so the `blocked` reported here
+is marked as the dialog's own (hooks/lib/dialog.py). The approved tool's
+PostToolUse reports `working` again, and turn end does not mistake it for a
+`blocked` the agent asserted.
+
 Codex is told apart by PLUGIN_ROOT, its own name for the plugin root: Codex
 sets it next to the CLAUDE_PLUGIN_ROOT compatibility mirror, Claude Code sets
 only the latter.
@@ -30,7 +35,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from hooks.lib import casper, notified
+from hooks.lib import casper, dialog, notified
 
 # Only these two mean "waiting on the user mid-task for something other than
 # the next prompt". Every other type, including idle_prompt, auth_success, and
@@ -94,6 +99,13 @@ def main() -> None:
         should_notify = _is_codex()
     else:
         return
+
+    try:
+        dialog.open_(payload.get("session_id", "default"))
+    except Exception:
+        # Without the marker this `blocked` lasts until the next tool call or
+        # prompt, as it always did.
+        pass
 
     # Two sequential casper calls share the hook's 3s budget (hooks.json), so
     # cap each at 1s: even a stalled first call leaves room for the notify.
