@@ -5,7 +5,8 @@ Two markers live under the data dir: the agent's own notify
 (hooks/lib/notified.py) and a dialog's `blocked` (hooks/lib/dialog.py).
 
   tool       PreToolUse: advance the notify marker; the dialog is over.
-  tool-done  PostToolUse: the dialog's tool ran, so report `working` again.
+  tool-done  PostToolUse: the dialog's tool ran, so report `working` again,
+             unless that tool set a status itself.
   clear      UserPromptSubmit, SessionEnd: drop both.
 
 The Bash hooks call this only when there is something to do, so the tool-call
@@ -43,7 +44,13 @@ def main() -> None:
         _quietly(notified.observe_tool, payload)
         _quietly(dialog.close, session_id)
     elif command == ["tool-done"]:
-        if _quietly(dialog.close, session_id):
+        ended = _quietly(dialog.close, session_id)
+        # Codex asks approval for the agent's own `casper status set blocked`
+        # until the user allows `casper` for good. That call has just run, and
+        # its state is newer than anything this hook could report over it.
+        sets_status = "status" in (_quietly(notified.casper_subcommands,
+                                            payload.get("tool_input")) or [])
+        if ended and not sets_status:
             casper.run(["status", "set", "working"], timeout=1)
     elif command == ["clear"]:
         _quietly(notified.clear, session_id)

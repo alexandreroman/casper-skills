@@ -125,6 +125,43 @@ describe("opencode plugin", () => {
     assert.deepEqual(calls[1].slice(0, 2), ["notify", "--message"])
   })
 
+  test("permission.asked names the permission, in opencode 1.18.34's shape", async () => {
+    // `tool` is a reference to the call there, not a name: reading it as one
+    // used to send "The agent needs your approval: [object Object]".
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    calls.length = 0
+    await h.event(ev("permission.asked", {
+      sessionID: "root", permission: "bash", patterns: ["touch b.txt"],
+      metadata: { command: "touch b.txt" }, tool: { messageID: "m", callID: "c" },
+    }))
+    assert.deepEqual(calls[1], ["notify", "--message", "The agent needs your approval: bash"])
+  })
+
+  test("an approved permission reports working again", async () => {
+    for (const reply of ["once", "always"]) {
+      const h = await build()
+      await h.event(ev("session.created", { info: { id: "root" } }))
+      await h.event(ev("permission.asked", { sessionID: "root", permission: "bash" }))
+      calls.length = 0
+      await h.event(ev("permission.replied", { sessionID: "root", requestID: "p", reply }))
+      assert.deepEqual(calls, [["status", "set", "working"]], reply)
+    }
+  })
+
+  test("a rejected permission stays blocked, through turn end", async () => {
+    const h = await build()
+    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.event(ev("permission.asked", { sessionID: "root", permission: "bash" }))
+    calls.length = 0
+    await h.event(ev("permission.replied", { sessionID: "root", requestID: "p", reply: "reject" }))
+    assert.deepEqual(calls, [])
+    answers.status = "blocked"
+    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    assert.deepEqual(calls, READS)
+  })
+
   test("permission.updated is treated the same as permission.asked", async () => {
     const h = await build()
     await h.event(ev("session.created", { info: { id: "root" } }))

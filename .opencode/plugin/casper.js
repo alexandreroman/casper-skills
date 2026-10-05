@@ -56,6 +56,17 @@ export function casperSubcommands(args) {
   return [...command.matchAll(CASPER_CALL)].map((m) => m[1])
 }
 
+// What a permission is for, as its event names it. opencode 1.18.34 sends the
+// permission's kind as a string (`permission: "bash"`) and `tool` as a
+// reference to the call ({ messageID, callID }); older releases sent `tool`
+// as a name, or `permission` as an object with a `type`.
+function permissionName(props) {
+  if (typeof props.tool === "string") return props.tool
+  if (typeof props.permission === "string") return props.permission
+  if (typeof props.permission?.type === "string") return props.permission.type
+  return "an action"
+}
+
 // Default runner: fire-and-forget, detached, every failure swallowed.
 let runner = (args) => {
   try {
@@ -207,9 +218,9 @@ export function createHandlers({ client }) {
 
   // Advance `notified` for one tool call, as hooks/lib/notified.py's
   // observe_tool does. A call that only runs `casper` is bookkeeping and
-  // leaves it alone. opencode asks a permission before the tool's own
-  // tool.execute.before, so the dialog the agent announced lands while the
-  // marker is still "armed".
+  // leaves it alone. As on the other agents, tool.execute.before runs before
+  // the call's permission is asked, so the dialog the agent announced lands
+  // while the marker is "attached".
   const observeTool = (args) => {
     const subcommands = casperSubcommands(args)
     if (subcommands.includes("notify")) notified = "armed"
@@ -280,13 +291,13 @@ export function createHandlers({ client }) {
       }
     },
 
-    // Fires immediately before opencode runs a tool call — including the
-    // one a just-approved permission unblocked. Unconditionally reassert
-    // "working" here, exactly like Claude Code and Codex's PreToolUse hook
-    // does with no dedup of its own: a blocked state has nothing else that
-    // clears it once the user has replied, and setting `busy` true again
-    // (idempotently, if a busy event already set it) keeps the turn-end
-    // path firing exactly one `done`.
+    // Fires as a tool call starts, before any permission it needs is asked
+    // (measured on opencode 1.18.34), just like Claude Code and Codex's
+    // PreToolUse. Unconditionally reassert "working" here, exactly like
+    // that hook does with no dedup of its own, and set `busy` true again
+    // (idempotently, if a busy event already set it) so the turn-end path
+    // fires exactly one `done`. The `blocked` a permission reports is lifted
+    // by permission.replied, below.
     async "tool.execute.before"(input, output) {
       const sessionID = input?.sessionID ?? null
       if (!(await resolveRoot(sessionID))) return
@@ -387,8 +398,18 @@ export function createHandlers({ client }) {
       if (BLOCKED_EVENTS.has(type)) {
         run(["status", "set", "blocked"])
         if (notified) return
-        const tool = props.tool ?? props.permission?.type ?? "an action"
-        run(["notify", "--message", `The agent needs your approval: ${tool}`])
+        run(["notify", "--message", `The agent needs your approval: ${permissionName(props)}`])
+        return
+      }
+
+      // The counterpart of hooks/lib/dialog.py, with the event the hooks do
+      // not get: the user answered. An approved call runs now, so the turn is
+      // working again; rejected, the turn stops and waits to be told what to
+      // do instead, which is still `blocked`. Turn end never writes over that.
+      if (type === "permission.replied") {
+        if (props.reply === "once" || props.reply === "always") {
+          run(["status", "set", "working"])
+        }
       }
     },
   }

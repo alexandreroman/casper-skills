@@ -252,6 +252,17 @@ class TestDialogBlocked(HookTest):
 class TestCodexDialogBlocked(TestDialogBlocked):
     codex = True
 
+    def test_an_approved_casper_status_call_keeps_its_own_state(self):
+        # Codex asks approval for the agent's own `casper status set blocked`
+        # until `casper` is allowed for good. Once it has run, its `blocked`
+        # is the agent's verdict, newer than the dialog's.
+        call = bash("casper status set blocked")
+        self.blocked({"session_id": "s1", "hook_event_name": "PermissionRequest",
+                      "tool_name": "Bash", "tool_input": call["tool_input"]})
+        self.assertEqual(self.run_hook("post-tool-use.sh", call), [])
+        # The dialog is over all the same: nothing left to lift later.
+        self.assertEqual(self.run_hook("post-tool-use.sh", bash("ls")), [])
+
 
 class TestOtherHookEvents(HookTest):
     def test_non_notification_non_permission_event_makes_no_call(self):
