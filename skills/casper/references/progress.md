@@ -78,7 +78,8 @@ casper progress clear
 
 `--current` is the 1-based index of the step running now, `--total` the number
 of steps, `--label` what that step is doing. Keep the label attached with `=`:
-a separate one that starts with `-` is read as an option, and the call fails.
+Casper 0.1.3 and earlier read a separate one that starts with `-` as an
+option, and the call fails.
 
 Three rules make hand-driving safe:
 

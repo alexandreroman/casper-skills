@@ -77,8 +77,9 @@ class TestClaudeNotification(HookTest):
                                  ["notify", "--message=Claude needs your permission"]])
 
     def test_a_message_starting_with_a_dash_is_passed_attached(self):
-        # casper reads a separate value that starts with `-` as an option and
-        # rejects the call (exit 64), so the notification silently vanished.
+        # casper 0.1.3 and earlier read a separate value that starts with `-`
+        # as an option and reject the call (exit 64), so the notification
+        # silently vanished.
         calls = self.blocked({**PERMISSION_PROMPT, "message": "- waiting on you"})
         self.assertEqual(calls, [BLOCKED, ["notify", "--message=- waiting on you"]])
 

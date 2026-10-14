@@ -66,8 +66,9 @@ def actions_for(tasks):
 
     # casper reads --current as the 1-based index of the current task, so the
     # in-progress one sits just past everything the bar is done with. The
-    # label is attached (`--label=...`): casper reads a separate value that
-    # starts with `-` as an option, rejects the call, and the bar never moves.
+    # label is attached (`--label=...`): casper 0.1.3 and earlier read a
+    # separate value that starts with `-` as an option, reject the call, and
+    # the bar never moves.
     return [["progress", "set",
              "--total", str(len(tasks)),
              "--current", str(_finished(tasks) + 1),

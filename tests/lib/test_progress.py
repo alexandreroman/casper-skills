@@ -22,8 +22,9 @@ class TestActionsFor(unittest.TestCase):
             "progress", "set", "--total", "3", "--current", "2", "--label=b"]])
 
     def test_the_label_is_attached_so_a_leading_dash_survives(self):
-        # casper reads a separate value that starts with `-` as an option and
-        # rejects the whole call (exit 64), so the bar silently never moved.
+        # casper 0.1.3 and earlier read a separate value that starts with `-`
+        # as an option and reject the whole call (exit 64), so the bar
+        # silently never moved.
         tasks = [{"label": "- fix x", "status": "in_progress"}]
         self.assertEqual(progress.actions_for(tasks), [[
             "progress", "set", "--total", "1", "--current", "1", "--label=- fix x"]])

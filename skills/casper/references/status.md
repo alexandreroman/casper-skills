@@ -55,4 +55,5 @@ that in the workspace's info panel as well — see
 in-memory only and is lost if Casper restarts.
 
 Attach the message with `=`, `--message="..."`, whenever it may start with
-`-`: passed separately, it is read as an option and the notification is lost.
+`-`: Casper 0.1.3 and earlier read a separate one as an option, and the
+notification is lost.
