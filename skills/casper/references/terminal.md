@@ -37,7 +37,12 @@ Remember the `terminal` id for the rest of the conversation — you'll need
 it to close the terminal later with `casper terminal close <id>` once the
 process is no longer needed. `--command` is optional (omit it for an empty
 shell); `--working-dir <path>` overrides the default (the workspace's
-worktree).
+worktree). A relative path resolves against your current directory, and one
+that does not exist or is not a directory fails before any terminal opens:
+
+```json
+{"error":"working directory '/abs/path' does not exist"}
+```
 
 ### Launching a new agent instance with `--command`
 
