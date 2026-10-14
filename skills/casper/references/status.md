@@ -53,3 +53,6 @@ is worth keeping in view (what failed, what you tried, what's left), publish
 that in the workspace's info panel as well — see
 `references/info.md`. Report it in the conversation too: the panel is
 in-memory only and is lost if Casper restarts.
+
+Attach the message with `=`, `--message="..."`, whenever it may start with
+`-`: passed separately, it is read as an option and the notification is lost.

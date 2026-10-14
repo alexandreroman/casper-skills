@@ -87,6 +87,9 @@ casper info set --file <path>                                     # a document y
 printf '%s\n' "$text" | casper info set -                         # from a pipeline
 ```
 
+Attach `--message` with `=` (`--message="- …"`) whenever the text may start
+with `-`; passed separately, it is read as an option and the call fails.
+
 For anything multi-line — which is nearly every real message — **write a
 Markdown temp file and pass `--file`**. Quoting a multi-line document into
 `--message` is fragile, and the file doubles as the copy you edit for the

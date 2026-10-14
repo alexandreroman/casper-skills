@@ -22,7 +22,7 @@ present options: that is a blocked state, not a finished one, so notify me.
 Both commands, together, are the notification — the flag tells me something
 needs me, the state is what makes the sidebar say so:
 
-  casper notify --message "<that you need me, and what for>"
+  casper notify --message="<that you need me, and what for>"
   casper status set blocked   # every time you end a turn waiting on me
 
 The notification only tells me to come back — I cannot reply to it. Ask the
@@ -41,7 +41,7 @@ Check your own tool list rather than assuming, in either direction. Only if
 you genuinely have no such tool is driving the bar yourself the right move,
 and then it is not optional — it is how that work gets tracked here:
 
-  casper progress set --total <n> --current <i> --label "<current step>"
+  casper progress set --total <n> --current <i> --label="<current step>"
   casper progress clear
 
 Whichever fills it, the bar is also how the workspace knows whether the work
