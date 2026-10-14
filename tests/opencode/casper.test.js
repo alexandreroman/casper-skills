@@ -122,7 +122,8 @@ describe("opencode plugin", () => {
     calls.length = 0
     await h.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
     assert.deepEqual(calls[0], ["status", "set", "blocked"])
-    assert.deepEqual(calls[1].slice(0, 2), ["notify", "--message"])
+    assert.equal(calls[1][0], "notify")
+    assert.ok(calls[1][1].startsWith("--message="))
   })
 
   test("permission.asked names the permission, in opencode 1.18.34's shape", async () => {
@@ -135,7 +136,7 @@ describe("opencode plugin", () => {
       sessionID: "root", permission: "bash", patterns: ["touch b.txt"],
       metadata: { command: "touch b.txt" }, tool: { messageID: "m", callID: "c" },
     }))
-    assert.deepEqual(calls[1], ["notify", "--message", "The agent needs your approval: bash"])
+    assert.deepEqual(calls[1], ["notify", "--message=The agent needs your approval: bash"])
   })
 
   test("an approved permission reports working again", async () => {
@@ -454,7 +455,14 @@ describe("progress mirror", () => {
       { content: "a", status: "completed" },
       { content: "b", status: "in_progress" },
       { content: "c", status: "pending" },
-    ]), [["progress", "set", "--total", "3", "--current", "2", "--label", "b"]])
+    ]), [["progress", "set", "--total", "3", "--current", "2", "--label=b"]])
+  })
+
+  // casper reads a separate value that starts with `-` as an option and
+  // rejects the whole call, so the bar silently never moved.
+  test("the label is attached, so a leading dash survives", () => {
+    assert.deepEqual(progressActions([{ content: "- fix x", status: "in_progress" }]),
+      [["progress", "set", "--total", "1", "--current", "1", "--label=- fix x"]])
   })
 
   test("no labelled in-progress task is a no-op", () => {
@@ -479,7 +487,7 @@ describe("progress mirror", () => {
       { content: "a", status: "completed" },
       { content: "b", status: "cancelled" },
       { content: "c", status: "in_progress" },
-    ]), [["progress", "set", "--total", "3", "--current", "3", "--label", "c"]])
+    ]), [["progress", "set", "--total", "3", "--current", "3", "--label=c"]])
   })
 
   test("a missing or non-array todos list is a no-op, not a throw", () => {
@@ -506,7 +514,7 @@ describe("progress mirror", () => {
       { content: "b", status: "in_progress" },
     ]}))
     assert.deepEqual(calls, [
-      ["progress", "set", "--total", "2", "--current", "2", "--label", "b"]])
+      ["progress", "set", "--total", "2", "--current", "2", "--label=b"]])
   })
 
   test("todo.updated on a child session is ignored", async () => {
