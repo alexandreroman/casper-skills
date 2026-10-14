@@ -81,6 +81,8 @@ check_progress '[{"label":"a","status":"completed"},{"label":"b","status":"cance
                "every remaining step cancelled"
 check_progress '[{"label":"a","status":"completed"},{"label":"b","status":"cancelled"},{"label":"c","status":"in_progress"}]' \
                "a cancelled step behind the current one"
+check_progress '[{"label":"- fix x","status":"in_progress"}]' \
+               "a label that starts with a dash"
 
 # The session-start triple and the blocked pair are payload-dependent, so
 # they are not in EVENT_ACTIONS: hooks/session-start.py, hooks/blocked.py,

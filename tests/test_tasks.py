@@ -28,7 +28,7 @@ class TestClaudeTaskTools(Base):
                              "tool_input": {"taskId": "1", "status": "in_progress"},
                              "tool_response": {}})
             self.assertEqual(stub.calls[-1], [
-                "progress", "set", "--total", "2", "--current", "1", "--label", "Building"])
+                "progress", "set", "--total", "2", "--current", "1", "--label=Building"])
 
     def test_all_completed_clears(self):
         with CasperStub() as stub:
@@ -71,7 +71,7 @@ class TestCodexUpdatePlan(Base):
                                  {"step": "Verify", "status": "pending"}]},
                              "tool_response": {}})
             self.assertEqual(stub.calls[-1], [
-                "progress", "set", "--total", "3", "--current", "2", "--label", "Write"])
+                "progress", "set", "--total", "3", "--current", "2", "--label=Write"])
 
     def test_completed_plan_clears(self):
         with CasperStub() as stub:

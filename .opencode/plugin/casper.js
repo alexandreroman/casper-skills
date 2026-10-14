@@ -136,10 +136,12 @@ export function progressActions(todos) {
   const current = todos.find((t) => t.status === "in_progress" && t.content)
   if (!current) return null
 
+  // The label is attached, as in hooks/lib/progress.py: casper reads a
+  // separate value that starts with `-` as an option and rejects the call.
   return [["progress", "set",
            "--total", String(todos.length),
            "--current", String(finished + 1),
-           "--label", current.content]]
+           `--label=${current.content}`]]
 }
 
 /**
@@ -398,7 +400,7 @@ export function createHandlers({ client }) {
       if (BLOCKED_EVENTS.has(type)) {
         run(["status", "set", "blocked"])
         if (notified) return
-        run(["notify", "--message", `The agent needs your approval: ${permissionName(props)}`])
+        run(["notify", `--message=The agent needs your approval: ${permissionName(props)}`])
         return
       }
 

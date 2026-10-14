@@ -65,11 +65,13 @@ def actions_for(tasks):
         return None
 
     # casper reads --current as the 1-based index of the current task, so the
-    # in-progress one sits just past everything the bar is done with.
+    # in-progress one sits just past everything the bar is done with. The
+    # label is attached (`--label=...`): casper reads a separate value that
+    # starts with `-` as an option, rejects the call, and the bar never moves.
     return [["progress", "set",
              "--total", str(len(tasks)),
              "--current", str(_finished(tasks) + 1),
-             "--label", label]]
+             f"--label={label}"]]
 
 
 def reconcile(tasks):

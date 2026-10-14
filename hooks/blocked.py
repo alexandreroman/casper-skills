@@ -111,7 +111,9 @@ def main() -> None:
     # cap each at 1s: even a stalled first call leaves room for the notify.
     casper.run(["status", "set", "blocked"], timeout=1)
     if should_notify and not _agent_notified(payload):
-        casper.run(["notify", "--message", _message(payload)], timeout=1)
+        # Attached, like every free-text value: a separate one that starts
+        # with `-` reads as an option, and the notification is lost.
+        casper.run(["notify", f"--message={_message(payload)}"], timeout=1)
 
 
 if __name__ == "__main__":

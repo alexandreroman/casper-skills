@@ -71,13 +71,14 @@ Only when the table above put you on this path. No mirror can derive the bar,
 so driving it yourself is the only option:
 
 ```bash
-casper progress set --total 6 --current 5 --label "Splitting AppModel.swift"
+casper progress set --total 6 --current 5 --label="Splitting AppModel.swift"
 casper progress get     # what the sidebar is showing right now
 casper progress clear
 ```
 
 `--current` is the 1-based index of the step running now, `--total` the number
-of steps, `--label` what that step is doing.
+of steps, `--label` what that step is doing. Keep the label attached with `=`:
+a separate one that starts with `-` is read as an option, and the call fails.
 
 Three rules make hand-driving safe:
 

@@ -19,7 +19,14 @@ class TestActionsFor(unittest.TestCase):
                  {"label": "b", "status": "in_progress"},
                  {"label": "c", "status": "pending"}]
         self.assertEqual(progress.actions_for(tasks), [[
-            "progress", "set", "--total", "3", "--current", "2", "--label", "b"]])
+            "progress", "set", "--total", "3", "--current", "2", "--label=b"]])
+
+    def test_the_label_is_attached_so_a_leading_dash_survives(self):
+        # casper reads a separate value that starts with `-` as an option and
+        # rejects the whole call (exit 64), so the bar silently never moved.
+        tasks = [{"label": "- fix x", "status": "in_progress"}]
+        self.assertEqual(progress.actions_for(tasks), [[
+            "progress", "set", "--total", "1", "--current", "1", "--label=- fix x"]])
 
     def test_no_labelled_in_progress_task_is_a_noop(self):
         tasks = [{"label": "", "status": "in_progress"},
@@ -45,7 +52,7 @@ class TestActionsFor(unittest.TestCase):
                  {"label": "b", "status": "cancelled"},
                  {"label": "c", "status": "in_progress"}]
         self.assertEqual(progress.actions_for(tasks), [[
-            "progress", "set", "--total", "3", "--current", "3", "--label", "c"]])
+            "progress", "set", "--total", "3", "--current", "3", "--label=c"]])
 
 
 class TestNothingInFlight(unittest.TestCase):

@@ -74,7 +74,13 @@ class TestClaudeNotification(HookTest):
     def test_permission_prompt_blocks_and_notifies(self):
         calls = self.blocked(PERMISSION_PROMPT)
         self.assertEqual(calls, [BLOCKED,
-                                 ["notify", "--message", "Claude needs your permission"]])
+                                 ["notify", "--message=Claude needs your permission"]])
+
+    def test_a_message_starting_with_a_dash_is_passed_attached(self):
+        # casper reads a separate value that starts with `-` as an option and
+        # rejects the call (exit 64), so the notification silently vanished.
+        calls = self.blocked({**PERMISSION_PROMPT, "message": "- waiting on you"})
+        self.assertEqual(calls, [BLOCKED, ["notify", "--message=- waiting on you"]])
 
     def test_elicitation_dialog_blocks(self):
         calls = self.blocked({"hook_event_name": "Notification",
@@ -110,7 +116,7 @@ class TestClaudePermissionRequest(HookTest):
         calls = self.blocked({**ASK_PERMISSION, "tool_name": "Bash"})
         calls += self.blocked(PERMISSION_PROMPT)
         self.assertEqual(calls, [BLOCKED, BLOCKED,
-                                 ["notify", "--message", "Claude needs your permission"]])
+                                 ["notify", "--message=Claude needs your permission"]])
 
 
 class TestCodexPermissionRequest(HookTest):
@@ -120,17 +126,18 @@ class TestCodexPermissionRequest(HookTest):
         calls = self.blocked({"hook_event_name": "PermissionRequest", "tool_name": "shell",
                               "tool_input": {"description": "run the test suite"}})
         self.assertEqual(calls[0], BLOCKED)
-        self.assertEqual(calls[1][:2], ["notify", "--message"])
+        self.assertEqual(calls[1][0], "notify")
+        self.assertTrue(calls[1][1].startswith("--message="))
 
     def test_uses_the_tool_description_when_present(self):
         calls = self.blocked({"hook_event_name": "PermissionRequest", "tool_name": "shell",
                               "tool_input": {"description": "run the test suite"}})
-        self.assertIn("run the test suite", calls[1][2])
+        self.assertIn("run the test suite", calls[1][1])
 
     def test_falls_back_to_the_tool_name(self):
         calls = self.blocked({"hook_event_name": "PermissionRequest",
                               "tool_name": "apply_patch"})
-        self.assertIn("apply_patch", calls[1][2])
+        self.assertIn("apply_patch", calls[1][1])
 
 
 class TestClaudeAgentAlreadyNotified(HookTest):
@@ -284,7 +291,7 @@ class TestRobustness(unittest.TestCase):
                                                PLUGIN_ROOT=""),
                                   capture_output=True, text=True, cwd=ROOT)
             self.assertEqual(proc.returncode, 0, proc.stderr)
-            self.assertEqual(stub.calls[1][:2], ["notify", "--message"])
+            self.assertTrue(stub.calls[1][1].startswith("--message="))
 
 if __name__ == "__main__":
     unittest.main()

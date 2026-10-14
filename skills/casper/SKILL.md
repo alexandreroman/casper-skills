@@ -42,7 +42,7 @@ notification cannot be answered: ask the question itself in the conversation,
 and let the message say only what you need them for, never the question.
 
 ```bash
-casper notify --message "<that you need them, and what for>"
+casper notify --message="<that you need them, and what for>"
 casper status set blocked   # when you're waiting on them mid-turn
 ```
 

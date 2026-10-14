@@ -41,10 +41,12 @@ prints a JSON array of every workspace:
 casper workspace current
 ```
 
-prints the current workspace (from `$CASPER_WORKSPACE_ID`):
+prints the current workspace (from `$CASPER_WORKSPACE_ID`), with the same
+fields as a `list` entry; `name`, `branch` and `path` are left out when Casper
+cannot resolve them:
 
 ```json
-{"workspace":"...","path":"..."}
+{"workspace":"...","name":"...","branch":"...","path":"..."}
 ```
 
 Use these to answer questions like "which workspaces are open", or to
@@ -60,8 +62,10 @@ casper workspace new <branch> [--base <ref>] [--command <cmd>] [--workspace <id-
 creates a new Git worktree workspace on a new branch, printing:
 
 ```json
-{"workspace":"<new-id>","name":"...","branch":"...","path":"..."}
+{"workspace":"<new-id>","name":"...","branch":"...","path":"...","command":"..."}
 ```
+
+`command` echoes `--command`, and is there only when you passed one.
 
 `--workspace <id-or-name>` decides where the new workspace is created: it
 becomes a sibling of *that* workspace, in *that* workspace's Space. Omitted,
