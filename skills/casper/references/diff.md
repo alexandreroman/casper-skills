@@ -10,6 +10,11 @@ casper diff open          # full diff
 casper diff open <file>   # scrolled to one file
 ```
 
+`<file>` is relative to the workspace's worktree root, not to your current
+directory, or absolute. It must be a file in the worktree, or one deleted from
+it that the diff lists; anything else is refused. The view scrolls only when
+the diff lists that exact path; otherwise it opens unscrolled.
+
 When the user explicitly asks to close it ("ferme le diff", "close the diff
 view", "cache le diff") — collapse it instead:
 
