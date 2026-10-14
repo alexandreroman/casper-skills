@@ -57,7 +57,7 @@ real browser before declaring them done.
 | `casper browser scroll-bottom`, `casper browser scroll-top` | Jump straight to the bottom/top of the page (e.g. trigger infinite-scroll loading, or return to the header). |
 
 Most commands print a JSON object (e.g. `{"result":…,"workspace":…}`,
-`{"console":[…]}`, or `{"url":…,"workspace":…}`); `eval`, `content`, and
+`{"console":[…],"workspace":…}`, or `{"url":…,"workspace":…}`); `eval`, `content`, and
 `url` accept `--raw` to print just the value, HTML, or bare URL. `wait`
 returns an `{"error":…}` object on timeout — treat that as the condition not
 holding, not as a crash.

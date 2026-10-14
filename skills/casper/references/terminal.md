@@ -30,7 +30,7 @@ casper terminal new --command "npm run dev"
 prints one line of JSON to stdout:
 
 ```json
-{"terminal":"3f2a1c4e-...","workspace":"...","command":"npm run dev"}
+{"terminal":"3f2a1c4e-...","workspace":"...","command":"npm run dev","working-dir":"..."}
 ```
 
 Remember the `terminal` id for the rest of the conversation — you'll need

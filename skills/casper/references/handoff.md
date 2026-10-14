@@ -140,7 +140,7 @@ casper workspace new <name> \
 This prints the created workspace on one line:
 
 ```json
-{"workspace":"<new-id>","name":"...","branch":"...","path":"..."}
+{"workspace":"<new-id>","name":"...","branch":"...","path":"...","command":"..."}
 ```
 
 Keep that `workspace` id — Step 4 reports it and can target it.
