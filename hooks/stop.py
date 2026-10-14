@@ -9,7 +9,8 @@ before it writes to it (`progress.py::turn_end_actions` holds the rule):
     `blocked` hooks/blocked.py reported for a dialog that no hook saw close
     (hooks/lib/dialog.py), which is over now that the turn is;
   - a progress bar still up means work that outlives the turn — background
-    subagents left running — so the turn ends `working`;
+    subagents left running — so the turn ends `working`, and so does a
+    subagent Claude Code lists as still running in `background_tasks`;
   - anything else ends `done`.
 
 Done is reported explicitly because nothing else can derive it: `casper status
@@ -36,10 +37,26 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from hooks.lib import casper, dialog, notified, progress
 
 
+def subagent_running(payload) -> bool:
+    """Whether the agent ended its turn with a background subagent running.
+
+    Claude Code lists what is still in flight in Stop's `background_tasks`.
+    Only a subagent counts: its hand-back always starts a new turn, whose Stop
+    reports again, while a background shell such as a dev server may never
+    end and would hold the workspace at `working` for the whole session.
+    """
+    tasks = payload.get("background_tasks")
+    return isinstance(tasks, list) and any(
+        isinstance(t, dict) and t.get("type") == "subagent" and t.get("status") == "running"
+        for t in tasks)
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
+        payload = {}
+    if not isinstance(payload, dict):
         payload = {}
 
     path = None
@@ -65,7 +82,8 @@ def main() -> None:
         # A dialog's `blocked`, left standing because its tool never reported
         # back. The agent asserted nothing, so the turn ends like any other.
         state = None
-    for args in progress.turn_end_actions(tasks, state, bar_up):
+    for args in progress.turn_end_actions(tasks, state, bar_up,
+                                          background=subagent_running(payload)):
         casper.run(args, timeout=1)
 
     # A wait the agent announced with its own `casper notify` ends with the

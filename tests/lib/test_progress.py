@@ -179,6 +179,19 @@ class TestTurnEndActions(unittest.TestCase):
         # Both reads failed: the behaviour this had before they existed.
         self.assertEqual(progress.turn_end_actions([], None, False), [self.DONE])
 
+    def test_a_background_subagent_holds_the_turn_at_working(self):
+        # No bar, or one this hook is about to clear: a subagent still running
+        # is work that outlives the turn all the same.
+        self.assertEqual(progress.turn_end_actions([], "working", False, background=True),
+                         [self.WORKING])
+        self.assertEqual(progress.turn_end_actions(self.FINISHED, "working", True,
+                                                   background=True),
+                         [self.WORKING, progress.CLEAR[0]])
+
+    def test_a_background_subagent_does_not_report_over_an_asserted_state(self):
+        for state in ("blocked", "error"):
+            self.assertEqual(progress.turn_end_actions([], state, False, background=True), [])
+
 
 class TestState(unittest.TestCase):
     def test_missing_file_loads_empty(self):
