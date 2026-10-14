@@ -13,7 +13,9 @@ and every hook that knows the dialog is over closes it:
 
   PostToolUse        the approved tool ran: report `working` again
                      (hooks/post-tool-use.sh).
-  PreToolUse         a new tool call started, and it reports `working` itself.
+  PreToolUse         a new tool call started, and it reports `working` itself
+                     (markers.py does for a subagent's, which reports nothing
+                     otherwise).
   Stop               the turn ended: the `blocked` is not the agent's verdict,
                      so turn end reports over it.
   UserPromptSubmit,  the wait is over whatever happened to it.

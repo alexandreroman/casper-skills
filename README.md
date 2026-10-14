@@ -105,7 +105,7 @@ lifecycle drives the workspace:
 
 | What the workspace shows | When |
 |---|---|
-| sidebar **working** | the turn starts, and again on every tool call — and it holds when a turn ends with the progress bar still up, which is what work left running in the background looks like |
+| sidebar **working** | the turn starts, and again on every tool call the agent makes itself (a subagent's tool calls leave the state alone, so one still running after the turn cannot write over its `done` or `blocked`) — and it holds when a turn ends with the progress bar still up, which is what work left running in the background looks like, or, on Claude Code, with a background subagent still running |
 | sidebar **done** | the turn ends with no bar up, or the session ends |
 | sidebar **blocked**, plus a notification | the agent needs a decision, a credential, a login or an approval from you — a state it reported itself is never written over by the end of the turn, and one reported for a permission dialog lifts once the approved tool has run. One wait is one notification: when the agent already sent its own, the integration adds none. Claude Code holds a permission prompt's notification until the prompt has gone unanswered for a few seconds, so one you answer straight away sends none |
 | progress bar | the agent's own task, plan or todo list, mirrored step by step and cleared when the work is over — an agent whose harness has no such list drives the bar itself, and that bar stands until it clears it |
@@ -113,8 +113,9 @@ lifecycle drives the workspace:
 | state, bar and info panel reset | a new session starts — a resume or a compact keeps the bar and the info panel, since that work is still the same |
 | sidebar **error** | the turn ends on an API error — a rate limit, an auth or billing problem, an overloaded model. Claude Code and opencode only; Codex has no event that reports one. Every other kind of failure stays the agent's own call |
 
-Apart from that last row, and the delay before a Claude Code permission
-prompt notifies, the three agents behave identically.
+Apart from that last row, the delay before a Claude Code permission prompt
+notifies, and a background subagent holding a Claude Code turn at working, the
+three agents behave identically.
 
 Outside a Casper terminal the integration does nothing at all, and it never
 blocks or fails a turn even when Casper isn't running.

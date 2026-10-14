@@ -105,7 +105,7 @@ def reconcile(tasks):
 ASSERTED = frozenset({"blocked", "error"})
 
 
-def turn_end_actions(tasks, state, bar_up):
+def turn_end_actions(tasks, state, bar_up, background=False):
     """Everything a turn ending emits, given what the workspace is showing.
 
     `state` is the sidebar's current state and `bar_up` whether a bar is on
@@ -123,13 +123,18 @@ def turn_end_actions(tasks, state, bar_up):
     finished work now holds the workspace at `working` until session end, so
     clearing it the moment the work is done is what keeps the state honest.
 
+    `background` says the agent left a subagent running, which is work that
+    outlives the turn whether or not a bar describes it. Only Claude Code
+    reports it (`hooks/stop.py`); its hand-back starts a turn of its own,
+    whose turn end decides again.
+
     Reads that fail come back as None/False, and a turn with no bar reports
     `done` — the behaviour this had before either read existed.
     """
     clears = reconcile(tasks)
     if state in ASSERTED:
         return clears
-    still_up = bool(bar_up) and not clears
+    still_up = (bool(bar_up) and not clears) or background
     return [["status", "set", "working" if still_up else "done"]] + clears
 
 

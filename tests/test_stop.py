@@ -28,15 +28,21 @@ READS = [["status", "get"], ["progress", "get"]]
 DONE = ["status", "set", "done"]
 WORKING = ["status", "set", "working"]
 CLEAR = ["progress", "clear"]
+SUBAGENT = {"id": "a8881014", "type": "subagent", "status": "running",
+            "description": "Final review: Tests", "agent_type": "general-purpose"}
 
 
 class TestStop(unittest.TestCase):
     def setUp(self):
         self.data_dir = tempfile.mkdtemp()
 
-    def fire(self, stub, session_id="s1", data_dir=None, status="working", bar=False):
+    def fire(self, stub, session_id="s1", data_dir=None, status="working", bar=False,
+             background_tasks=None):
+        payload = {"session_id": session_id}
+        if background_tasks is not None:
+            payload["background_tasks"] = background_tasks
         return subprocess.run(
-            [HOOK], input=json.dumps({"session_id": session_id}),
+            [HOOK], input=json.dumps(payload),
             env=stub.env(CLAUDE_PLUGIN_DATA=data_dir or self.data_dir,
                          **CasperStub.replies(status=status, bar=bar)),
             capture_output=True, text=True, cwd=ROOT)
@@ -126,6 +132,39 @@ class TestStop(unittest.TestCase):
         with CasperStub() as stub:
             self.fire(stub, status=None, bar=None)
             self.assertEqual(stub.calls, READS + [DONE])
+
+    def test_a_background_subagent_holds_the_turn_at_working(self):
+        # Measured on Claude Code 2.1.300: Stop fires as soon as the agent ends
+        # its turn, with the subagents it left running listed in
+        # `background_tasks`. Its hand-back starts a turn of its own, whose
+        # Stop reports again once it is gone.
+        with CasperStub() as stub:
+            self.fire(stub, background_tasks=[SUBAGENT])
+            self.assertEqual(stub.calls, READS + [WORKING])
+
+    def test_a_background_shell_does_not_hold_the_turn(self):
+        # A dev server started in the background may never exit: holding the
+        # turn on it would leave the workspace `working` for the session.
+        with CasperStub() as stub:
+            self.fire(stub, background_tasks=[
+                {"id": "b1", "type": "shell", "status": "running", "command": "npm run dev"}])
+            self.assertEqual(stub.calls, READS + [DONE])
+
+    def test_a_finished_subagent_does_not_hold_the_turn(self):
+        with CasperStub() as stub:
+            self.fire(stub, background_tasks=[{**SUBAGENT, "status": "completed"}])
+            self.assertEqual(stub.calls, READS + [DONE])
+
+    def test_a_background_subagent_does_not_lift_the_agents_blocked(self):
+        with CasperStub() as stub:
+            self.fire(stub, status="blocked", background_tasks=[SUBAGENT])
+            self.assertEqual(stub.calls, READS)
+
+    def test_malformed_background_tasks_read_as_none(self):
+        for value in ("running", [None, "subagent"], {"type": "subagent"}):
+            with CasperStub() as stub:
+                self.fire(stub, background_tasks=value)
+                self.assertEqual(stub.calls, READS + [DONE], value)
 
     def test_a_finished_mirror_is_removed_with_its_lock(self):
         # Left behind, the pair outlives every session that tracked a task.
