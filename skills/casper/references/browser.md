@@ -43,7 +43,7 @@ real browser before declaring them done.
 | Command | Use it to |
 |---------|-----------|
 | `casper browser load <url>` | Load a URL in the background (no panel) — set up automation without disturbing the user's view. |
-| `casper browser reload [--wait]` | Reload after a rebuild; `--wait` blocks until `readyState` is complete. |
+| `casper browser reload [--wait]` | Reload after a rebuild; `--wait` blocks until the reloaded page finishes loading or fails to, so it returning does not mean the page loaded. |
 | `casper browser wait [<selector>] [--js <expr>] [--visible] [--gone] [--timeout <ms>]` | Block until the DOM settles before asserting (default 5000 ms). |
 | `casper browser console [--level <debug\|log\|info\|warn\|error>] [--clear]` | Read captured console output **and uncaught errors** — your primary "did it break?" signal. |
 | `casper browser screenshot [--out <path>] [--url <url>] [--width <w>] [--height <h>]` | Save a PNG. Plain, it captures the visible browser panel. But as soon as you pass `--width`, `--height`, or `--url`, the capture happens **off-screen** — it renders at that viewport in a headless page without touching the user's visible panel, so responsive breakpoints render faithfully. |

@@ -458,8 +458,8 @@ describe("progress mirror", () => {
     ]), [["progress", "set", "--total", "3", "--current", "2", "--label=b"]])
   })
 
-  // casper reads a separate value that starts with `-` as an option and
-  // rejects the whole call, so the bar silently never moved.
+  // casper 0.1.3 and earlier read a separate value that starts with `-` as
+  // an option and reject the whole call, so the bar silently never moved.
   test("the label is attached, so a leading dash survives", () => {
     assert.deepEqual(progressActions([{ content: "- fix x", status: "in_progress" }]),
       [["progress", "set", "--total", "1", "--current", "1", "--label=- fix x"]])

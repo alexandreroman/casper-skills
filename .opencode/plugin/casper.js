@@ -136,8 +136,9 @@ export function progressActions(todos) {
   const current = todos.find((t) => t.status === "in_progress" && t.content)
   if (!current) return null
 
-  // The label is attached, as in hooks/lib/progress.py: casper reads a
-  // separate value that starts with `-` as an option and rejects the call.
+  // The label is attached, as in hooks/lib/progress.py: casper 0.1.3 and
+  // earlier read a separate value that starts with `-` as an option and
+  // reject the call.
   return [["progress", "set",
            "--total", String(todos.length),
            "--current", String(finished + 1),

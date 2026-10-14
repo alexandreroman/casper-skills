@@ -88,7 +88,8 @@ printf '%s\n' "$text" | casper info set -                         # from a pipel
 ```
 
 Attach `--message` with `=` (`--message="- …"`) whenever the text may start
-with `-`; passed separately, it is read as an option and the call fails.
+with `-`: Casper 0.1.3 and earlier read a separate one as an option, and the
+call fails.
 
 For anything multi-line — which is nearly every real message — **write a
 Markdown temp file and pass `--file`**. Quoting a multi-line document into
