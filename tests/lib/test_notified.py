@@ -17,6 +17,12 @@ class TestCasperSubcommands(unittest.TestCase):
                              'casper status set blocked || true'),
                          ["notify", "status"])
 
+    def test_calls_inside_a_brace_group(self):
+        # The form agents write most often after the bare one.
+        self.assertEqual(cmd('[ -n "$CASPER_WORKSPACE_ID" ] && { casper notify --message="x"; '
+                             'casper status set blocked; } || true'),
+                         ["notify", "status"])
+
     def test_a_mention_is_not_a_call(self):
         self.assertEqual(cmd('grep -rn "casper notify" skills/'), [])
         self.assertEqual(cmd("echo casper notify"), [])

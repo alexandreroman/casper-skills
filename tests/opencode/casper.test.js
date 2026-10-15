@@ -314,6 +314,12 @@ describe("tool.execute.before", () => {
       assert.deepEqual(await permission(h), [["status", "set", "blocked"]])
     })
 
+    test("a notify inside a brace group counts too", async () => {
+      const h = await started()
+      await tool(h, '[ -n "$CASPER_WORKSPACE_ID" ] && { casper notify --message="x"; casper status set blocked; } || true')
+      assert.deepEqual(await permission(h), [["status", "set", "blocked"]])
+    })
+
     test("the approved tool call is still covered, the one after it is not", async () => {
       const h = await started()
       await tool(h, 'casper notify --message "x"')

@@ -43,7 +43,7 @@ const BLOCKED_EVENTS = new Set(["permission.asked", "permission.updated"])
 
 // Mirrors hooks/lib/notified.py::_CASPER_CALL: a `casper` invocation in
 // command position, so a `grep "casper notify"` does not read as one.
-const CASPER_CALL = /(?:^|[;&|(\n])\s*casper\s+([a-z]+)/g
+const CASPER_CALL = /(?:^|[;&|({\n])\s*casper\s+([a-z]+)/g
 
 /**
  * The `casper` subcommands a tool call runs, in order. Empty for none.

@@ -36,9 +36,12 @@ ARMED = "armed"
 ATTACHED = "attached"
 
 # A `casper` invocation in command position: at the start of the command, or
-# right after a separator (`;`, `&&`, `||`, `|`, `(`, a newline). That keeps a
-# `grep "casper notify"` from reading as the agent notifying.
-_CASPER_CALL = re.compile(r"(?:^|[;&|(\n])\s*casper\s+([a-z]+)")
+# right after a separator (`;`, `&&`, `||`, `|`, `(`, `{`, a newline). That
+# keeps a `grep "casper notify"` from reading as the agent notifying. The `{`
+# matters: agents often wrap the pair as `[ -n "$CASPER_WORKSPACE_ID" ] &&
+# { casper notify ...; casper status set blocked; }`, and missing it let the
+# dialog's own notification follow the agent's.
+_CASPER_CALL = re.compile(r"(?:^|[;&|({\n])\s*casper\s+([a-z]+)")
 
 
 def casper_subcommands(tool_input) -> list:
