@@ -156,6 +156,14 @@ class TestClaudeAgentAlreadyNotified(HookTest):
                         '&& casper status set blocked'), ASK)
         self.assertEqual(self.notifies(self.blocked(PERMISSION_PROMPT)), [])
 
+    def test_notify_and_status_in_a_brace_group(self):
+        # Verbatim from a session that still got "Claude needs your permission"
+        # a few seconds after its own notification.
+        self.tools(bash('[ -n "$CASPER_WORKSPACE_ID" ] && { casper notify '
+                        '--message="Need your input on the audience"; '
+                        'casper status set blocked; } || true'), ASK)
+        self.assertEqual(self.notifies(self.blocked(PERMISSION_PROMPT)), [])
+
     def test_a_prompt_after_the_agent_moved_on_notifies(self):
         # The announced dialog was answered in time and the agent got back to
         # work: a later prompt is a wait the user has not been told about.
