@@ -67,6 +67,41 @@ creates a new Git worktree workspace on a new branch, printing:
 
 `command` echoes `--command`, and is there only when you passed one.
 
+### What `<branch>` may contain
+
+No character is rejected up front: Casper sanitizes `<branch>` into a valid
+Git ref first, and the result names the branch, the workspace (`name` is
+always the same string as `branch`) and the worktree folder
+(`<repo>-<branch>`, with `-2`, `-3`, … appended when that folder is taken;
+the branch keeps its name). The sanitizer:
+
+- lowercases everything and turns each run of whitespace into one `-`
+  (`My Feature` → `my-feature`);
+- replaces `~ ^ : ? * [ ] \`, ASCII control characters, DEL and the `@{`
+  sequence with `-`;
+- squashes a run of the same separator (`a---b` → `a-b`, `a...b` → `a.b`,
+  `a//b` → `a/b`);
+- strips a leading `.` and a trailing `.lock` from each `/`-separated part,
+  then any `-`, `.` or `/` at either end (`--hello--` → `hello`).
+
+Anything else passes through unchanged, non-ASCII letters included (`café`
+stays `café`). Creation still fails when:
+
+- the name sanitizes to nothing or to `@` (`"   "`, `"---"`): `invalid
+  branch name: <name>`;
+- **the name contains `/`**: it survives sanitizing, but the worktree's Git
+  entry is named after the branch and `feat/x` needs a
+  `.git/worktrees/feat/` folder that is never made, so `new` fails with
+  `failed to make directory '…/.git/worktrees/feat/x'`. Use `-` instead
+  (`feat-x`);
+- a branch by that name already exists: `new` always creates a fresh
+  branch and never reuses one.
+
+The reply is the source of truth, not what you passed. Reuse its `name` or
+`branch` in later calls: `--workspace` tries ids first, then matches a name
+**exactly** (case-sensitive), so `--workspace "My Feature"` does not find
+the `my-feature` workspace.
+
 `--workspace <id-or-name>` decides where the new workspace is created: it
 becomes a sibling of *that* workspace, in *that* workspace's Space. Omitted,
 it defaults to `$CASPER_WORKSPACE_ID`, so the new workspace is a sibling of
