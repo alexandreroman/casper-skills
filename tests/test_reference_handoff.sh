@@ -14,4 +14,13 @@ grep -q "mktemp" "$FILE" || fail "missing temp-file handoff document"
 # No placeholder may reference a file no step here creates.
 grep -q -- "--file <note>" "$FILE" && fail "dangling <note> placeholder: no step creates that file"
 
+# The continuing session is named after the new workspace, by the rules
+# workspace.md states; the section it points to must exist under that title.
+grep -q -- '--command "<agent-cli> <name-flag> <name> \\"Read the handoff' "$FILE" \
+  || fail "the handoff launch must name the continuing session"
+grep -q '"Naming the session after the workspace"' "$FILE" \
+  || fail "must point to workspace.md's session-naming section"
+grep -q "^### Naming the session after the workspace\$" "$DIR/skills/casper/references/workspace.md" \
+  || fail "workspace.md has no section by the title handoff.md points to"
+
 echo "PASS"

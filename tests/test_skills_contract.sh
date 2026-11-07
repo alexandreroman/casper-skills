@@ -35,6 +35,13 @@ for file in "$ENTRY" "$DIR"/skills/casper/references/*.md; do
   fi
 done
 
+# Every recipe that launches an agent CLI names the new session, so the user
+# can tell the sessions apart without renaming each one by hand. A launch
+# added later without the name flag is the regression this catches.
+unnamed="$(grep -n -- '--command "\?<agent-cli>' "$DIR"/skills/casper/references/*.md | grep -v '<name-flag>' | sed "s|^$DIR/||" || true)"
+[ -z "$unnamed" ] || fail "agent launch without <name-flag>:
+$unnamed"
+
 # Reference files are loaded as plain prose, never registered as skills, so a
 # frontmatter block there would be dead weight an agent might act on.
 for ref in "$DIR"/skills/casper/references/*.md; do

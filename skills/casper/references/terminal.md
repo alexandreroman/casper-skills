@@ -62,8 +62,25 @@ Casper terminal. That means a bare invocation of the agent CLI just
 works — no need to re-export `$PATH` and no `/bin/sh -c` wrapping:
 
 ```bash
-casper terminal new --command <agent-cli>   # e.g. claude, codex, gemini
+casper terminal new --command "<agent-cli> <name-flag> <session-name>"   # e.g. claude -n fix-login-review
 ```
+
+Give that instance a session name, so the user can tell it apart from
+every other session in their agent's session list instead of renaming it
+by hand. Name it after the workspace plus a short purpose,
+`<workspace>-<purpose>` (`fix-login-review`, `fix-login-tests`): the
+workspace's name is the `name` that `casper workspace current` prints, or
+that `casper workspace list` prints for the workspace `--workspace`
+targets. Keep the whole name to ASCII letters, digits, `.`, `_` and `-`,
+so it needs no quoting when retyped as keystrokes; if the workspace's
+name holds anything else, use `<purpose>` alone.
+
+Of the agent CLIs above, only `claude` takes a name at launch: its
+`<name-flag>` is `-n` (long form `--name`). `codex`, `gemini`, `opencode`
+(whose `--title` belongs to the non-interactive `opencode run`) and
+`aider` have none, so launch them unnamed: drop `<name-flag>
+<session-name>` from the command, and never pass another flag in its
+place.
 
 To have that instance start on a specific task right away (e.g. "run a
 code review here") instead of opening an empty agent prompt, give it an
@@ -90,7 +107,7 @@ cat > "$prompt_file" <<'EOF'
 Review the diff in this workspace for bugs.
 <...the full, self-contained context goes here...>
 EOF
-casper terminal new --command "<agent-cli> \"Read the instructions in $prompt_file and follow them.\""   # e.g. claude "Read the instructions in /tmp/… and follow them."
+casper terminal new --command "<agent-cli> <name-flag> <session-name> \"Read the instructions in $prompt_file and follow them.\""   # e.g. claude -n fix-login-review "Read the instructions in /tmp/… and follow them."
 ```
 
 The `$prompt_file` path is expanded in your shell, so the launched agent

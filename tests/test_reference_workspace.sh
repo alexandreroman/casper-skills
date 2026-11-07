@@ -22,4 +22,20 @@ head -n 30 "$FILE" | grep -q -- "--workspace" \
 grep -q -- "casper workspace new <branch> \[--base <ref>\] \[--command <cmd>\] \[--workspace <id-or-name>\]" "$FILE" \
   || fail "the new synopsis must match the CLI exactly, --workspace included"
 
+# Every launch names the new session after the workspace, and only with a
+# flag the agent CLI really has: a made-up flag would make the CLI refuse to
+# start, which is worse than an unnamed session.
+grep -q "^### Naming the session after the workspace\$" "$FILE" \
+  || fail "missing the session-naming section (handoff.md links it by title)"
+grep -q -- '--command "<agent-cli> <name-flag> <name>"' "$FILE" \
+  || fail "the bare launch must name the session"
+grep -q -- '--command "<agent-cli> <name-flag> <name> \\"Read the instructions' "$FILE" \
+  || fail "the launch with a task must name the session"
+grep -q '^| `claude` | `-n` (long form `--name`)' "$FILE" \
+  || fail "claude's name flag must be -n / --name"
+for cli in codex gemini opencode aider; do
+  grep -q "^| \`$cli\` | none" "$FILE" || fail "$cli has no session-name flag; the table must say none"
+done
+grep -q "launched unnamed" "$FILE" || fail "must say an agent CLI without a name flag is launched unnamed"
+
 echo "PASS"

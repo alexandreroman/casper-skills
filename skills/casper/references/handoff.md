@@ -134,7 +134,7 @@ prompts.
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
 casper workspace new <name> \
   --base "$current_branch" \
-  --command "<agent-cli> \"Read the handoff in $prompt_file and continue the work.\""
+  --command "<agent-cli> <name-flag> <name> \"Read the handoff in $prompt_file and continue the work.\""
 ```
 
 This prints the created workspace on one line:
@@ -148,6 +148,13 @@ Keep that `workspace` id — Step 4 reports it and can target it.
 Substitute the CLI you're actually running (`claude`, `codex`, `gemini`,
 …); if the user named one, use that. Pick a descriptive `<name>` for the
 new workspace, or ask the user if it's unclear.
+
+The same `<name>` names the continuing session, so the user finds it in
+their agent's session list without renaming it by hand. Follow
+`references/workspace.md`'s "Naming the session after the workspace":
+it lists the `<name-flag>` per agent CLI (`-n` for `claude`; a CLI without
+one is launched unnamed, `<name-flag> <name>` dropped) and the form of
+`<name>` that Casper keeps unchanged and that needs no quoting.
 
 ### Step 4: report the handoff
 
