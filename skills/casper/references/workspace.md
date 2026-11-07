@@ -148,8 +148,36 @@ Casper terminal. That means a bare invocation of the agent CLI just
 works — no need to re-export `$PATH` and no `/bin/sh -c` wrapping:
 
 ```bash
-casper workspace new <name> --command <agent-cli>   # e.g. claude, codex, gemini
+casper workspace new <name> --command "<agent-cli> <name-flag> <name>"   # e.g. claude -n <name>
 ```
+
+### Naming the session after the workspace
+
+Give the new instance a session name, so the user can tell it apart from
+every other session in their agent's session list instead of renaming it
+by hand. Name it after the workspace: the same `<name>` goes to `workspace
+new` and to the agent CLI's name flag, in the same call.
+
+Only some agent CLIs take a name at launch:
+
+| Agent CLI | `<name-flag>` |
+|---|---|
+| `claude` | `-n` (long form `--name`): shown in the prompt box, the `/resume` picker and the terminal title |
+| `codex` | none |
+| `gemini` | none |
+| `opencode` | none: its `--title` belongs to `opencode run`, which is not interactive |
+| `aider` | none |
+
+An agent CLI without one is launched unnamed: drop `<name-flag> <name>`
+from the command, and never pass another flag in its place.
+
+The command is typed before Casper replies, so pick a `<name>` that Casper
+keeps exactly as you typed it: lowercase ASCII letters, digits and single
+`-` between words (`fix-login`, `review-auth`), already in the form the
+sanitizer above would produce. The reply's `name` is then that same
+string, and so is the session's. Such a name is also shell-safe: with no
+space, quote, `$`, backtick or glob character in it, it needs no quoting
+when retyped as keystrokes.
 
 ### Giving that instance a task to work on
 
@@ -181,7 +209,7 @@ Review the diff in this workspace for bugs.
 <...the full, self-contained context goes here...>
 EOF
 casper workspace new <name> \
-  --command "<agent-cli> \"Read the instructions in $prompt_file and follow them.\""   # e.g. claude "Read the instructions in /tmp/… and follow them."
+  --command "<agent-cli> <name-flag> <name> \"Read the instructions in $prompt_file and follow them.\""   # e.g. claude -n <name> "Read the instructions in /tmp/… and follow them."
 ```
 
 The `$prompt_file` path is expanded in your shell, so the launched agent
