@@ -38,4 +38,19 @@ for cli in codex gemini opencode aider; do
 done
 grep -q "launched unnamed" "$FILE" || fail "must say an agent CLI without a name flag is launched unnamed"
 
+# What the agent launched earlier is history: the user or another agent can
+# merge or delete a workspace at any moment. A session that listed five
+# instances "running in parallel" from memory, three of them already gone, is
+# the failure this section exists for. SKILL.md and handoff.md cite its title.
+grep -q "^### Reporting workspaces: check first\$" "$FILE" \
+  || fail "missing the check-before-reporting section (SKILL.md and handoff.md link it by title)"
+section="$(sed -n '/^### Reporting workspaces: check first$/,/^## /p' "$FILE")"
+echo "$section" | grep -q "casper workspace list" || fail "the reporting section must run casper workspace list"
+echo "$section" | grep -q "same turn" || fail "the check must happen in the same turn as the claim"
+echo "$section" | grep -q "history" || fail "unchecked launches must be worded as history"
+echo "$section" | grep -q "casper status get --workspace" \
+  || fail "an instance's activity must be checked against its workspace's status"
+grep -q 'Reporting workspaces: check first' "$DIR/skills/casper/references/handoff.md" \
+  || fail "handoff.md must send its report through the check-first section"
+
 echo "PASS"

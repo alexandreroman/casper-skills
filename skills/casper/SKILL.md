@@ -7,10 +7,9 @@ user-invocable: false
 
 # Casper
 
-Casper opens terminal workspaces, each one a Git worktree, and surrounds them
-with surfaces an agent can drive from the command line: a sidebar state and
-progress bar, an info panel, extra terminals, a browser panel, and a diff
-view. The `casper` CLI is how you reach all of them.
+Casper opens terminal workspaces, each one a Git worktree, with surfaces the
+`casper` CLI drives: a sidebar state and progress bar, an info panel, extra
+terminals, a browser panel, and a diff view.
 
 ## Guard rule
 
@@ -26,12 +25,10 @@ never allowed to interrupt, block, or fail the task at hand.
 
 ## Codex socket access
 
-Casper controls the current app through `$CASPER_CONTROL_SOCKET`, a Unix-domain
-socket outside Codex's workspace sandbox. When calling `casper` from Codex,
-request `sandbox_permissions: require_escalated`; `allowed-tools` authorizes
-the command but does not grant that socket access. When requesting persistent
-approval, use `prefix_rule: ["casper"]`; never broaden it beyond that command
-prefix.
+`casper` reaches the app through `$CASPER_CONTROL_SOCKET`, a Unix-domain socket
+outside Codex's workspace sandbox: `allowed-tools` authorizes the command but
+not that access. From Codex, request `sandbox_permissions: require_escalated`,
+and for persistent approval use `prefix_rule: ["casper"]`, never broader.
 
 ## Tell the user when you need them
 
@@ -46,26 +43,29 @@ casper notify --message="<that you need them, and what for>"
 casper status set blocked   # when you're waiting on them mid-turn
 ```
 
+## Check workspaces before you report them
+
+Workspaces get merged, deleted or finished behind your back. Before saying
+which exist, are open, or what their instances are doing, check in that same
+turn (`casper workspace list`; see `references/workspace.md`) and report only
+what it shows. Anything else is history ("I launched X"), not state: a session
+listed five instances "running in parallel" from memory, and three were gone.
+
 ## Progress tracking
 
-Check your tool list first: if it holds a plan, todo, or task tool, that
-tool *is* the progress bar — the hook mirrors it to the sidebar without an
-extra permission prompt, so a `casper progress` call of your own fights that
-mirror rather than adding to it. Only a harness with no such tool drives the
-bar by hand. Read `references/progress.md` first.
+Check your tool list first: a plan, todo, or task tool there *is* the
+progress bar — the hook mirrors it to the sidebar without a permission prompt,
+so a `casper progress` call of your own fights that mirror. Only a harness
+without one drives the bar by hand: read `references/progress.md` first.
 
 ## Where to go next
 
-Read the reference file before running that surface's commands rather than
-improvising the CLI from memory; each one carries the exact subcommands,
-their flags, and the judgment calls around them.
-
-`casper --help` is not a substitute. It lists subcommands and flags, and
-stops there: it cannot tell you that an operation is a multi-step procedure
-with a stop rule, that another is irreversible, or that the thing you are
-reaching for is a procedure rather than a subcommand. When it rejects a
-guess, it says only that the argument was unexpected — never what to do
-instead. Every one of those has already cost a session real work.
+`casper --help` is not a substitute for reading the reference first. It lists
+subcommands and flags, and stops there: it cannot tell you that an operation
+is a multi-step procedure with a stop rule, that another is irreversible, or
+that what you reach for is a procedure rather than a subcommand, and a
+rejected guess says only that the argument was unexpected. Every one of those
+has already cost a session real work.
 
 | What you need | Reference |
 |---|---|
