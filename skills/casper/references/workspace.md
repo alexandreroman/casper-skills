@@ -49,9 +49,10 @@ cannot resolve them:
 {"workspace":"...","name":"...","branch":"...","path":"..."}
 ```
 
-Use these to answer questions like "which workspaces are open", or to
-resolve an id/name/path to pass as `--workspace` to this or other Casper
-skills.
+Use these to answer questions like "which workspaces are open" — run them in
+the same turn as the answer, never from memory (see "Reporting workspaces:
+check first" below) — or to resolve an id/name/path to pass as `--workspace`
+to this or other Casper skills.
 
 ## Creating a workspace: explicit request only
 
@@ -260,6 +261,44 @@ Whatever the trigger, only *create the workspace or launch the instance*
 once the user has explicitly agreed — never act on your own judgment
 (propose, don't act). This mirrors the existing rule not to create a Git
 branch without being asked: `workspace new` always creates one.
+
+### Reporting workspaces: check first
+
+What you launched is history, not state. The user, another agent or the
+instance itself can merge, delete or finish a workspace at any moment, and
+nothing tells you, so a list of launches kept in your head goes stale
+silently. One session launched workspaces one after another over a long
+conversation, then ended a reply with "five instances now run in parallel:
+A, B, C, D, E" without checking: three had already been merged and deleted.
+
+Before any sentence about which workspaces exist, are open, still running or
+finished, in that same turn:
+
+1. Run `casper workspace list` (and `casper workspace current` when the
+   claim is about this one). Match entries by the `workspace` id or `name`
+   that `new` replied with.
+2. Report only what it shows. A workspace you launched that is missing from
+   it is gone — merged or deleted — not running.
+3. Word anything you did not check this turn as history: "I launched X and Y
+   earlier", not "X and Y are running".
+
+Right after a launch, the `new` reply is that check for the workspace: it
+exists. It is not one for the instance, whose command was only typed into a
+terminal: say "launched", not "running".
+
+What an instance is doing — busy, done, waiting on the user — is a separate
+claim, and `list` does not show it: a listed workspace may hold an instance
+that finished long ago, or an empty shell. The source is that workspace's
+sidebar state, which the instance's own hooks write:
+
+```bash
+casper status get --workspace <id-or-name>   # {"status":"working","workspace":"..."}
+```
+
+Say that this is what you checked. It is only as good as that instance's
+integration: `unknown`, or an agent CLI without these hooks, tells you
+nothing, so say so instead of guessing. If you checked nothing, or a check
+failed, say that too.
 
 ## Deleting a workspace: explicit request only, and irreversible
 

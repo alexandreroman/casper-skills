@@ -159,8 +159,11 @@ one is launched unnamed, `<name-flag> <name>` dropped) and the form of
 ### Step 4: report the handoff
 
 Tell the user which workspace/branch the work continued in (id and path
-from the `casper workspace new` output) so they can switch to it. If they
-need to act on it, you may also `casper notify --message "..."`.
+from the `casper workspace new` output) so they can switch to it. That reply
+proves the workspace exists, not that the instance has started: say you
+launched it, and check before any later claim about it, as
+`references/workspace.md`'s "Reporting workspaces: check first" says. If
+they need to act on it, you may also `casper notify --message "..."`.
 
 You can also leave that summary in the new workspace's info panel, so the
 user finds it when they switch there. Target the workspace by the

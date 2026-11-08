@@ -51,6 +51,16 @@ grep -q "casper status set blocked" "$FILE" || fail "the blocked rule must be in
 # asked in the conversation, not in the notify message.
 grep -q "cannot be answered" "$FILE" || fail "the entry skill must say the notification cannot be answered"
 
+# Stating which workspaces are open from memory is a false answer to the user
+# as soon as one was merged or deleted behind the agent's back. The rule has to
+# be read before the agent ever opens references/workspace.md, so it is inline.
+grep -q "^## Check workspaces before you report them\$" "$FILE" \
+  || fail "the check-before-reporting rule must be inline, not only in references/workspace.md"
+rule="$(sed -n '/^## Check workspaces before you report them$/,/^## /p' "$FILE")"
+echo "$rule" | grep -q "casper workspace list" || fail "the reporting rule must name casper workspace list"
+echo "$rule" | grep -q "same" || fail "the reporting rule must ask for the check in the same turn"
+echo "$rule" | grep -q "history" || fail "the reporting rule must say unchecked launches are history"
+
 # The guard rule, likewise: every command below it depends on it.
 grep -q "CASPER_WORKSPACE_ID" "$FILE" || fail "missing guard-rule mention in the body"
 grep -qi "never allowed to interrupt\|ignore it and carry on" "$FILE" || fail "missing the never-interrupt-the-task rule"

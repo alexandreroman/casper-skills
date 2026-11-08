@@ -88,6 +88,14 @@ class TestWorkspaceReference(unittest.TestCase):
                 self.assertNotIn(sub, real)
         self.assertIn("There is no `casper workspace close` subcommand", self.text)
 
+    def test_the_activity_check_targets_another_workspace(self):
+        # The reference sends an agent to `casper status get --workspace` to
+        # learn what a launched instance is doing. Without that flag the
+        # reference would name a check the CLI rejects, and the agent would be
+        # left with nothing but its memory, the very source the section bans.
+        self.assertIn("casper status get --workspace", self.text)
+        self.assertIn("--workspace", usage_of("status", "get"))
+
 
 if __name__ == "__main__":
     unittest.main()
