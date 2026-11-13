@@ -61,16 +61,14 @@ codex plugin add casper@casper
 ### opencode
 
 opencode installs a plugin straight from a Git repository, so this one is
-distributed exactly like the other two — no npm registry in the picture.
-
-On **opencode 2**:
+distributed exactly like the other two — no npm registry in the picture:
 
 ```
 opencode plugin add github:alexandreroman/casper-skills
 ```
 
-That adds the package to `plugins` in your global `opencode.jsonc`. The same
-entry by hand, for a Git spec or a local checkout (a directory, never a file):
+That adds the package to `plugins` in your global `opencode.jsonc`. By hand,
+the same thing is:
 
 ```jsonc
 {
@@ -78,60 +76,23 @@ entry by hand, for a Git spec or a local checkout (a directory, never a file):
 }
 ```
 
-opencode 2 does not run opencode 1 plugins, and ignores a `plugin` key left
-over from opencode 1: rename it to `plugins`. The package ships two parts. The
-server part runs in opencode's background server, which every terminal shares;
-the TUI part runs in each terminal and is the one that knows which Casper
-workspace it belongs to. Both are loaded from that one entry. Restart
-opencode, and run `opencode service restart` to reload the shared server, to
-pick up an update.
-
-On **opencode 1**:
-
-```
-opencode plugin github:alexandreroman/casper-skills -g
-```
-
-That is opencode's own installer: it fetches the repository and writes the
-config entry itself (drop `-g` to install into the project's config instead).
-By hand, the same thing is:
-
-```json
-{
-  "plugin": ["github:alexandreroman/casper-skills"]
-}
-```
-
 Any Git spec works in that slot — `github:owner/repo`, `git+https://…`,
-`git+ssh://…` for a private clone, or a local path. The skill arrives with the
-plugin; there is nothing to install alongside it.
+`git+ssh://…` for a private clone — or a local checkout (a directory, never a
+file). The skill arrives with the plugin; there is nothing to install
+alongside it. This needs opencode 2 or later: opencode 1 cannot load this
+plugin, and opencode 2 ignores the `plugin` key opencode 1 used, so rename an
+old entry to `plugins`.
 
-A Git spec tracks the branch head: opencode re-resolves it every time it
-starts and refreshes its copy under `~/.cache/opencode/packages/`, so quitting
-and relaunching opencode is the whole update. To pull the new commit without
-starting a session — say, because Casper just asked you to update the
-integration — run the install command again; no `--force` is needed:
+The package ships two parts, both loaded from that one entry. The server part
+runs in opencode's background server, which every terminal shares; the TUI
+part runs in each terminal, and is the one that knows which Casper workspace
+it belongs to.
 
-```
-opencode plugin github:alexandreroman/casper-skills -g
-```
-
-Either way, an opencode session that is already running keeps the plugin it
-started with until you restart it.
-
-> [!WARNING]
-> If the install reports `Could not install "github:alexandreroman/casper-skills"`
-> and `NpmInstallFailedError`, opencode's cache directory sits behind a
-> symlink — a `~/.cache` that links elsewhere, or an `XDG_CACHE_HOME` that
-> goes through one (anything under `/tmp` on macOS does). opencode's npm step
-> then loses track of the package it just fetched: the install leaves the
-> config untouched, and even a hand-written config entry is skipped at every
-> start, silently. Point opencode at the resolved directory — in your shell
-> profile, so every start sees it — and install again:
->
-> ```sh
-> export XDG_CACHE_HOME="$(cd "${XDG_CACHE_HOME:-$HOME/.cache}" && pwd -P)"
-> ```
+opencode checks an unpinned Git plugin for updates when its server starts,
+without installing them. To take an update — say, because Casper just asked
+you to update the integration — run `opencode plugin update`, then
+`opencode service restart` to reload the shared server, and restart any
+running opencode.
 
 ## What it does
 
@@ -205,12 +166,9 @@ codex plugin add casper@casper   # again after every edit; it does refresh
 `codex exec --dangerously-bypass-hook-trust` skips the `/hooks` trust prompt
 for one non-interactive run, which is what makes this loop bearable.
 
-opencode 1 picks up a plugin file dropped into `~/.config/opencode/plugin/` or
-a project's `.opencode/plugin/`; a symlink to the checkout is enough, and it
-brings its skill with it. opencode 2 loads a plugin directory instead: list
-the checkout in `plugins` (see above). Its `package.json` `exports` name the
-server part (`casper.js`) and the TUI part (`tui.js`); opencode 2 ignores
-`main`. To keep a probe away from your real setup, give it its own
+For opencode, list the checkout in `plugins` (see above). Its `package.json`
+`exports` name the server part (`casper.js`) and the TUI part (`tui.js`);
+opencode ignores `main`. To keep a probe away from your real setup, give it its own
 `XDG_CONFIG_HOME`, and either run `opencode --standalone` or give that config
 its own `opencode service set port`: the shared server's port is
 machine-wide.

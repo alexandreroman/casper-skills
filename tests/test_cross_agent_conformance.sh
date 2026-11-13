@@ -18,19 +18,19 @@ got_start="$(node --input-type=module -e '
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
-const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+const h = plugin.__test.createHandlers({ lookup: async () => false })
 plugin.__test.setRunner((a) => calls.push(a))
-const ev = (type, properties) => ({ event: { type, properties } })
-await hooks.event(ev("session.created", { info: { id: "root" } }))
+const ev = (type, data) => ({ type, data })
+await h.handle(ev("session.created", { sessionID: "root" }))
 calls.length = 0
-await hooks.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+await h.handle(ev("session.execution.started", { sessionID: "root" }))
 console.log(JSON.stringify(calls))
 ')"
 
 [ "$got_start" = "$(expected_for turn-start)" ] || {
   echo "FAIL: turn-start mismatch"; echo "  expected $(expected_for turn-start)"; echo "  got      $got_start"; exit 1; }
 
-# session.error is opencode's counterpart to Claude Code's StopFailure: a turn
+# session.execution.failed is opencode's counterpart to Claude Code's StopFailure: a turn
 # that ended on an error instead of on an answer. Both report the state and
 # stop there, leaving the bar where the work stopped. The hook side is pinned
 # against the table by tests/test_event_conformance.sh; this pins opencode's,
@@ -39,20 +39,20 @@ got_error="$(node --input-type=module -e '
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
-const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+const h = plugin.__test.createHandlers({ lookup: async () => false })
 plugin.__test.setRunner((a) => calls.push(a))
-const ev = (type, properties) => ({ event: { type, properties } })
-await hooks.event(ev("session.created", { info: { id: "root" } }))
-await hooks.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+const ev = (type, data) => ({ type, data })
+await h.handle(ev("session.created", { sessionID: "root" }))
+await h.handle(ev("session.execution.started", { sessionID: "root" }))
 calls.length = 0
-await hooks.event(ev("session.error", { sessionID: "root" }))
+await h.handle(ev("session.execution.failed", { sessionID: "root" }))
 console.log(JSON.stringify(calls))
 ')"
 
 [ "$got_error" = "$(expected_for turn-error)" ] || {
-  echo "FAIL: turn-error mismatch (EVENT_ACTIONS vs opencode session.error)"
+  echo "FAIL: turn-error mismatch (EVENT_ACTIONS vs opencode session.execution.failed)"
   echo "  expected $(expected_for turn-error)"; echo "  got      $got_error"; exit 1; }
-echo "  ok: turn-error matches (EVENT_ACTIONS == opencode session.error)"
+echo "  ok: turn-error matches (EVENT_ACTIONS == opencode session.execution.failed)"
 
 # progressActions (JS) must agree with actions_for (Python) on the same input.
 # "cancelled" only ever arrives from opencode, but the predicate that reads it
@@ -110,10 +110,10 @@ js_session_start="$(node --input-type=module -e '
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
-const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+const h = plugin.__test.createHandlers({ lookup: async () => false })
 plugin.__test.setRunner((a) => calls.push(a))
-const ev = (type, properties) => ({ event: { type, properties } })
-await hooks.event(ev("session.created", { info: { id: "root" } }))
+const ev = (type, data) => ({ type, data })
+await h.handle(ev("session.created", { sessionID: "root" }))
 console.log(JSON.stringify(calls))
 ')"
 
@@ -132,13 +132,13 @@ js_blocked="$(node --input-type=module -e '
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
-const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+const h = plugin.__test.createHandlers({ lookup: async () => false })
 plugin.__test.setRunner((a) => calls.push(a))
-const ev = (type, properties) => ({ event: { type, properties } })
-await hooks.event(ev("session.created", { info: { id: "root" } }))
+const ev = (type, data) => ({ type, data })
+await h.handle(ev("session.created", { sessionID: "root" }))
 calls.length = 0
-await hooks.event(ev("permission.asked", {
-  sessionID: "root", permission: "bash", tool: { messageID: "m", callID: "c" },
+await h.handle(ev("permission.asked", {
+  sessionID: "root", action: "bash", resources: ["ls"], source: { type: "tool", messageID: "m", id: "c" },
 }))
 console.log(JSON.stringify(calls))
 ')"
@@ -151,7 +151,7 @@ echo "  ok: blocked pair matches (hooks/blocked.py == opencode permission.asked)
 # The agent ran `casper notify` itself, then a permission is asked: the
 # agent's message is the wait's one notification, so both sides report
 # blocked and stop there. Each side sees the same tool calls first, through
-# its own hook (PreToolUse, tool.execute.before); only the permission's own
+# its own hook (PreToolUse, session.tool.called); only the permission's own
 # calls are compared.
 py_notified="$(python3 - <<'PY'
 import json, shutil, subprocess, sys, tempfile
@@ -176,15 +176,15 @@ js_notified="$(node --input-type=module -e '
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
-const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+const h = plugin.__test.createHandlers({ lookup: async () => false })
 plugin.__test.setRunner((a) => calls.push(a))
-const ev = (type, properties) => ({ event: { type, properties } })
-await hooks.event(ev("session.created", { info: { id: "root" } }))
+const ev = (type, data) => ({ type, data })
+await h.handle(ev("session.created", { sessionID: "root" }))
 for (const command of ["casper notify --message \"x\"", "casper status set blocked"]) {
-  await hooks["tool.execute.before"]({ tool: "bash", sessionID: "root", callID: "1" }, { args: { command } })
+  await h.handle(ev("session.tool.called", { sessionID: "root", input: { command } }))
 }
 calls.length = 0
-await hooks.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
+await h.handle(ev("permission.asked", { sessionID: "root", action: "bash" }))
 console.log(JSON.stringify(calls))
 ')"
 
@@ -218,13 +218,13 @@ js_approved="$(node --input-type=module -e '
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
-const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+const h = plugin.__test.createHandlers({ lookup: async () => false })
 plugin.__test.setRunner((a) => calls.push(a))
-const ev = (type, properties) => ({ event: { type, properties } })
-await hooks.event(ev("session.created", { info: { id: "root" } }))
-await hooks.event(ev("permission.asked", { sessionID: "root", permission: "bash" }))
+const ev = (type, data) => ({ type, data })
+await h.handle(ev("session.created", { sessionID: "root" }))
+await h.handle(ev("permission.asked", { sessionID: "root", action: "bash" }))
 calls.length = 0
-await hooks.event(ev("permission.replied", { sessionID: "root", requestID: "p", reply: "once" }))
+await h.handle(ev("permission.replied", { sessionID: "root", requestID: "p", reply: "once" }))
 console.log(JSON.stringify(calls))
 ')"
 
@@ -268,7 +268,7 @@ turn_end_js() {
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
-const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+const h = plugin.__test.createHandlers({ lookup: async () => false })
 plugin.__test.setRunner((a) => calls.push(a))
 const state = process.argv[2]
 const bar = process.argv[3] === "1"
@@ -283,13 +283,13 @@ plugin.__test.setQuerier((a) => {
   }
   return null
 })
-const ev = (type, properties) => ({ event: { type, properties } })
+const ev = (type, data) => ({ type, data })
 const todos = JSON.parse(process.argv[1]).map(t => ({ content: t.label, status: t.status }))
-await hooks.event(ev("session.created", { info: { id: "root" } }))
-await hooks.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-await hooks.event(ev("todo.updated", { sessionID: "root", todos }))
+await h.handle(ev("session.created", { sessionID: "root" }))
+await h.handle(ev("session.execution.started", { sessionID: "root" }))
+await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos } }))
 calls.length = 0
-await hooks.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
 console.log(JSON.stringify(calls))
 ' "$1" "$2" "$3"
 }
@@ -330,12 +330,12 @@ js_session_end="$(node --input-type=module -e '
 import plugin from "./.opencode/plugin/casper.js"
 process.env.CASPER_WORKSPACE_ID = "test-ws"
 const calls = []
-const hooks = await plugin.server({ client: { session: { list: async () => ({ data: [{ id: "root" }] }) } } })
+const h = plugin.__test.createHandlers({ lookup: async () => false })
 plugin.__test.setRunner((a) => calls.push(a))
-const ev = (type, properties) => ({ event: { type, properties } })
-await hooks.event(ev("session.created", { info: { id: "root" } }))
+const ev = (type, data) => ({ type, data })
+await h.handle(ev("session.created", { sessionID: "root" }))
 calls.length = 0
-await hooks.event(ev("session.deleted", { sessionID: "root" }))
+await h.handle(ev("session.deleted", { sessionID: "root" }))
 console.log(JSON.stringify(calls))
 ')"
 

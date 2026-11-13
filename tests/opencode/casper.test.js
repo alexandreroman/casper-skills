@@ -1,9 +1,14 @@
+// The sidebar handlers in casper.js, driven with opencode's events. The event
+// shapes are the ones opencode 2.3.0 sent in a real session; tui.test.js
+// replays full copies of them through the TUI part.
 import { test, describe, beforeEach } from "node:test"
 import assert from "node:assert/strict"
-import { existsSync, readFileSync } from "node:fs"
-import { join, resolve } from "node:path"
+import { readFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import plugin, { progressActions, reconcileActions, turnEndActions } from "../../.opencode/plugin/casper.js"
+import plugin, {
+  createHandlers, progressActions, readSkill, reconcileActions, turnEndActions,
+} from "../../.opencode/plugin/casper.js"
 
 // The repository root, as a URL, so a manifest path like "./skills/" resolves
 // the same way the agents resolve it.
@@ -14,17 +19,16 @@ let calls
 // a test to put the workspace in the state that test is about; `build` resets
 // it to "a turn under way, nothing on screen".
 let answers
-const fakeClient = {
-  session: { list: async () => ({ data: [{ id: "root" }, { id: "child", parentID: "root" }] }) },
-}
+// What the TUI part's lookup answers: skip the subagent's session.
+const fakeLookup = async (sessionID) => sessionID === "child"
 
 // Every turn end reads the workspace back first, always in this order.
 const READS = [["status", "get"], ["progress", "get"]]
 
-async function build(client = fakeClient) {
+async function build(lookup = fakeLookup) {
   calls = []
   answers = { status: "working", bar: false }
-  const hooks = await plugin.server({ client, directory: "/tmp" })
+  const handlers = createHandlers({ lookup, lookupTimeoutMs: 50 })
   plugin.__test.setRunner((args) => { calls.push(args) })
   // A read is a call too, so it is recorded alongside the writes: every
   // assertion below is then a full account of what the plugin did, and the
@@ -43,21 +47,22 @@ async function build(client = fakeClient) {
     }
     return null
   })
-  return hooks
+  return handlers
 }
 
-const ev = (type, properties) => ({ event: { type, properties } })
+const ev = (type, data) => ({ type, data })
 
 describe("opencode plugin", () => {
   beforeEach(() => { process.env.CASPER_WORKSPACE_ID = "test-ws" })
 
-  test("exports an id so it can be path-loaded", () => {
+  test("exports an opencode plugin definition", () => {
     assert.equal(plugin.id, "casper")
+    assert.equal(typeof plugin.setup, "function")
   })
 
   test("root session.created resets the surfaces", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     assert.deepEqual(calls, [
       ["status", "set", "idle"], ["progress", "clear"], ["info", "clear"],
     ])
@@ -65,16 +70,16 @@ describe("opencode plugin", () => {
 
   test("child session.created is ignored", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "child", parentID: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "child", parentID: "root" }))
     assert.deepEqual(calls, [])
   })
 
   test("busy then idle reports working then done", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     // No todo list was ever reported, so there is no task state to judge the
     // bar by, and nothing is on screen either: the turn is over.
     assert.deepEqual(calls, [
@@ -83,92 +88,83 @@ describe("opencode plugin", () => {
 
   test("repeated busy reports working only once", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
     assert.deepEqual(calls, [["status", "set", "working"]])
   })
 
   test("idle without a preceding busy reports nothing", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, [])
   })
 
-  test("session.error reports error, not done", async () => {
+  test("a failed execution reports error, not done", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("session.error", { sessionID: "root" }))
+    await h.handle(ev("session.execution.failed", { sessionID: "root", error: { type: "provider", message: "overloaded" } }))
     assert.deepEqual(calls, [["status", "set", "error"]])
-  })
-
-  test("retry status changes nothing", async () => {
-    const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    calls.length = 0
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "retry", attempt: 1 } }))
-    assert.deepEqual(calls, [])
   })
 
   test("permission.asked reports blocked and notifies", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
+    await h.handle(ev("permission.asked", { sessionID: "root", action: "bash" }))
     assert.deepEqual(calls[0], ["status", "set", "blocked"])
     assert.equal(calls[1][0], "notify")
     assert.ok(calls[1][1].startsWith("--message="))
   })
 
-  test("permission.asked names the permission, in opencode 1.18.34's shape", async () => {
-    // `tool` is a reference to the call there, not a name: reading it as one
-    // used to send "The agent needs your approval: [object Object]".
+  test("permission.asked names the permission by its action, in opencode 2.3.0's shape", async () => {
+    // `source` is a reference to the call, not a name: reading an object as
+    // one sent "The agent needs your approval: [object Object]" once already.
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("permission.asked", {
-      sessionID: "root", permission: "bash", patterns: ["touch b.txt"],
-      metadata: { command: "touch b.txt" }, tool: { messageID: "m", callID: "c" },
+    await h.handle(ev("permission.asked", {
+      id: "per_1", sessionID: "root", action: "shell", resources: ["touch b.txt"],
+      save: ["touch *"], source: { type: "tool", messageID: "m", id: "c" },
     }))
-    assert.deepEqual(calls[1], ["notify", "--message=The agent needs your approval: bash"])
+    assert.deepEqual(calls[1], ["notify", "--message=The agent needs your approval: shell"])
+  })
+
+  test("a permission with no action still names something", async () => {
+    const h = await build()
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    calls.length = 0
+    await h.handle(ev("permission.asked", { sessionID: "root", action: { kind: "odd" } }))
+    assert.deepEqual(calls[1], ["notify", "--message=The agent needs your approval: an action"])
   })
 
   test("an approved permission reports working again", async () => {
     for (const reply of ["once", "always"]) {
       const h = await build()
-      await h.event(ev("session.created", { info: { id: "root" } }))
-      await h.event(ev("permission.asked", { sessionID: "root", permission: "bash" }))
+      await h.handle(ev("session.created", { sessionID: "root" }))
+      await h.handle(ev("permission.asked", { sessionID: "root", action: "bash" }))
       calls.length = 0
-      await h.event(ev("permission.replied", { sessionID: "root", requestID: "p", reply }))
+      await h.handle(ev("permission.replied", { sessionID: "root", requestID: "p", reply }))
       assert.deepEqual(calls, [["status", "set", "working"]], reply)
     }
   })
 
   test("a rejected permission stays blocked, through turn end", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("permission.asked", { sessionID: "root", permission: "bash" }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("permission.asked", { sessionID: "root", action: "bash" }))
     calls.length = 0
-    await h.event(ev("permission.replied", { sessionID: "root", requestID: "p", reply: "reject" }))
+    await h.handle(ev("permission.replied", { sessionID: "root", requestID: "p", reply: "reject" }))
     assert.deepEqual(calls, [])
     answers.status = "blocked"
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, READS)
-  })
-
-  test("permission.updated is treated the same as permission.asked", async () => {
-    const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    calls.length = 0
-    await h.event(ev("permission.updated", { sessionID: "root", tool: "bash" }))
-    assert.deepEqual(calls[0], ["status", "set", "blocked"])
   })
 
   test("session.deleted for the root reports done and clears the bar", async () => {
@@ -176,50 +172,47 @@ describe("opencode plugin", () => {
     // leaves that one standing, so nothing after this could ever drop it.
     // Mirrors hooks/session-end.sh and EVENT_ACTIONS["session-end"].
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("session.deleted", { sessionID: "root" }))
+    await h.handle(ev("session.deleted", { sessionID: "root" }))
     assert.deepEqual(calls, [["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("session.deleted for an untracked session is ignored", async () => {
     const h = await build()
     // No session.created has fired, so no root is bound.
-    await h.event(ev("session.deleted", { sessionID: "stranger" }))
+    await h.handle(ev("session.deleted", { sessionID: "stranger" }))
     assert.deepEqual(calls, [])
   })
 
   test("a deleted child session is dropped from the child cache", async () => {
-    // The plugin lives for the whole opencode process, so a cache entry that
-    // is never uncached is an unbounded leak, one entry per subagent session.
+    // The TUI part lives as long as the terminal, so a cache entry that is
+    // never uncached is an unbounded leak, one entry per subagent session.
     // Observable only through the lookup: re-asking about a forgotten id has
-    // to hit client.session.list() again.
+    // to look it up again.
     let listCalls = 0
-    const client = {
-      session: { list: async () => { listCalls++; return { data: [] } } },
-    }
-    const h = await build(client)
-    await h.event(ev("session.created", { info: { id: "child", parentID: "root" } }))
-    await h.event(ev("session.status", { sessionID: "child", status: { type: "busy" } }))
+    const h = await build(async () => { listCalls++; return false })
+    await h.handle(ev("session.created", { sessionID: "child", parentID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "child" }))
     assert.equal(listCalls, 0, "session.created should have cached the verdict")
 
-    await h.event(ev("session.deleted", { sessionID: "child" }))
-    await h.event(ev("session.status", { sessionID: "child", status: { type: "busy" } }))
+    await h.handle(ev("session.deleted", { sessionID: "child" }))
+    await h.handle(ev("session.execution.started", { sessionID: "child" }))
     assert.equal(listCalls, 1, "the entry survived session.deleted")
   })
 
   test("outside a Casper workspace nothing is emitted", async () => {
     delete process.env.CASPER_WORKSPACE_ID
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     assert.deepEqual(calls, [])
   })
 
   test("an unknown event is ignored", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("file.edited", { sessionID: "root", file: "x" }))
+    await h.handle(ev("file.edited", { sessionID: "root", file: "x" }))
     assert.deepEqual(calls, [])
   })
 
@@ -229,64 +222,60 @@ describe("opencode plugin", () => {
   describe("root recovery without a prior session.created", () => {
     test("a non-child session-scoped event is adopted as root and tracked", async () => {
       const h = await build()
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      await h.handle(ev("session.execution.started", { sessionID: "root" }))
       assert.deepEqual(calls, [["status", "set", "working"]])
     })
 
     test("a child session-scoped event is ignored, not adopted", async () => {
       const h = await build()
-      await h.event(ev("session.status", { sessionID: "child", status: { type: "busy" } }))
+      await h.handle(ev("session.execution.started", { sessionID: "child" }))
       assert.deepEqual(calls, [])
     })
 
-    test("a failed child lookup is treated as a child, never adopted as root", async () => {
-      const brokenClient = { session: { list: async () => { throw new Error("boom") } } }
-      const h = await build(brokenClient)
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    test("a failed lookup is treated as a skip, never adopted as root", async () => {
+      const h = await build(async () => { throw new Error("boom") })
+      await h.handle(ev("session.execution.started", { sessionID: "root" }))
       assert.deepEqual(calls, [])
     })
 
     test("a failed lookup is cached and attempted only once per session id", async () => {
       let listCalls = 0
-      const brokenClient = { session: { list: async () => { listCalls++; throw new Error("boom") } } }
-      const h = await build(brokenClient)
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-      await h.event(ev("todo.updated", { sessionID: "root", todos: [] }))
+      const h = await build(async () => { listCalls++; throw new Error("boom") })
+      await h.handle(ev("session.execution.started", { sessionID: "root" }))
+      await h.handle(ev("session.execution.started", { sessionID: "root" }))
+      await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos: [] } }))
       assert.equal(listCalls, 1)
     })
 
-    test("a hanging lookup is bounded by a timeout, cached as a child, and does not stall the handler", async () => {
+    test("a hanging lookup is bounded by a timeout, cached as a skip, and does not stall the handler", async () => {
       let listCalls = 0
-      const hangingClient = { session: { list: () => { listCalls++; return new Promise(() => {}) } } }
-      const h = await build(hangingClient)
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      const h = await build(() => { listCalls++; return new Promise(() => {}) })
+      await h.handle(ev("session.execution.started", { sessionID: "root" }))
       assert.deepEqual(calls, [])
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      await h.handle(ev("session.execution.started", { sessionID: "root" }))
       assert.equal(listCalls, 1)
     })
   })
 })
 
-describe("tool.execute.before", () => {
+describe("session.tool.called", () => {
   test("reasserts working after a permission is approved, so the turn does not stay blocked", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
-    // The permission is replied to (no dedicated handler for that), then
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("permission.asked", { sessionID: "root", action: "bash" }))
     // opencode is about to run the now-approved tool.
     calls.length = 0
-    await h["tool.execute.before"]({ tool: "bash", sessionID: "root", callID: "1" })
+    await h.handle(ev("session.tool.called", { sessionID: "root", input: {} }))
     assert.deepEqual(calls, [["status", "set", "working"]])
 
-    // The busy latch must be true again, so the repeated session.status
-    // "busy" that follows is deduplicated, and turn end fires exactly one
+    // The busy latch must be true again, so a repeated execution start that
+    // follows is deduplicated, and turn end fires exactly one
     // "done" rather than staying stuck or double-reporting.
     calls.length = 0
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
     assert.deepEqual(calls, [])
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, [...READS, ["status", "set", "done"]])
   })
 
@@ -294,16 +283,16 @@ describe("tool.execute.before", () => {
   // announces; hooks/lib/notified.py keeps the same rule for the other agents.
   describe("after the agent's own casper notify", () => {
     const tool = (h, command) =>
-      h["tool.execute.before"]({ tool: "bash", sessionID: "root", callID: "1" }, { args: { command } })
+      h.handle(ev("session.tool.called", { sessionID: "root", input: { command } }))
     const permission = async (h) => {
       calls.length = 0
-      await h.event(ev("permission.asked", { sessionID: "root", tool: "bash" }))
+      await h.handle(ev("permission.asked", { sessionID: "root", action: "bash" }))
       return calls
     }
     const started = async () => {
       const h = await build()
-      await h.event(ev("session.created", { info: { id: "root" } }))
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      await h.handle(ev("session.created", { sessionID: "root" }))
+      await h.handle(ev("session.execution.started", { sessionID: "root" }))
       return h
     }
 
@@ -338,27 +327,27 @@ describe("tool.execute.before", () => {
     test("turn end ends the episode", async () => {
       const h = await started()
       await tool(h, 'casper notify --message "x"')
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
-      await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+      await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
+      await h.handle(ev("session.execution.started", { sessionID: "root" }))
       assert.equal((await permission(h)).length, 2)
     })
   })
 
   test("on a child session it is ignored", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h["tool.execute.before"]({ tool: "bash", sessionID: "child", callID: "1" })
+    await h.handle(ev("session.tool.called", { sessionID: "child", input: {} }))
     assert.deepEqual(calls, [])
   })
 
   test("outside a Casper workspace nothing is emitted", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
     delete process.env.CASPER_WORKSPACE_ID
     try {
-      await h["tool.execute.before"]({ tool: "bash", sessionID: "root", callID: "1" })
+      await h.handle(ev("session.tool.called", { sessionID: "root", input: {} }))
       assert.deepEqual(calls, [])
     } finally {
       process.env.CASPER_WORKSPACE_ID = "test-ws"
@@ -366,82 +355,17 @@ describe("tool.execute.before", () => {
   })
 })
 
-describe("guidance injection", () => {
-  test("config hook adds the guidance file as an absolute path", async () => {
-    const h = await build()
-    assert.ok(h.config, "config hook is missing")
-    const cfg = {}
-    await h.config(cfg)
-    assert.ok(cfg.instructions.some((p) => p.endsWith("guidance.md")),
-      "config hook did not add the guidance file")
-    assert.ok(cfg.instructions.every((p) => p.startsWith("/")),
-      "instructions entry must be an absolute path")
-  })
-
-  test("existing instructions are preserved", async () => {
-    const h = await build()
-    assert.ok(h.config, "config hook is missing")
-    const cfg = { instructions: ["/existing.md"] }
-    await h.config(cfg)
-    assert.ok(cfg.instructions.includes("/existing.md"))
-  })
-
-  test("outside a Casper workspace the config hook is a no-op", async () => {
-    delete process.env.CASPER_WORKSPACE_ID
-    try {
-      const h = await build()
-      assert.ok(h.config, "config hook is missing")
-      const cfg = {}
-      await h.config(cfg)
-      assert.deepEqual(cfg, {})
-    } finally {
-      process.env.CASPER_WORKSPACE_ID = "test-ws"
-    }
-  })
-})
-
 describe("skill registration", () => {
-  test("config hook registers the skill folder this plugin ships", async () => {
-    const h = await build()
-    const cfg = {}
-    await h.config(cfg)
-    assert.ok(cfg.skills?.paths?.length, "config hook registered no skill path")
-    assert.ok(cfg.skills.paths.every((p) => p.startsWith("/")),
-      "a skill path must be absolute")
-  })
-
-  test("the folder it registers really holds the casper skill", async () => {
-    // opencode reads `skills.paths` entries as folders *of* skill folders, so
-    // the thing that has to exist is <path>/casper/SKILL.md. Registering a
-    // path that resolves to nothing fails silently at runtime: the skill is
-    // simply never offered, which is the failure this pins.
-    const h = await build()
-    const cfg = {}
-    await h.config(cfg)
-    const registered = cfg.skills.paths.at(-1)
-    assert.ok(existsSync(join(registered, "casper", "SKILL.md")),
-      `no casper skill under ${registered}`)
-  })
-
-  test("it is the same folder the plugin manifests declare", async () => {
+  test("the skill the server part registers is the one the plugin manifests declare", () => {
     // Three agents, one skill folder. Claude Code and Codex get it from
-    // .claude-plugin/plugin.json; opencode gets it from the hook above, and
+    // .claude-plugin/plugin.json; opencode gets it from the server part, and
     // the two must not drift apart.
     const manifest = JSON.parse(
       readFileSync(new URL("../../.claude-plugin/plugin.json", import.meta.url)))
     const declared = fileURLToPath(new URL(manifest.skills, PLUGIN_ROOT))
-    const h = await build()
-    const cfg = {}
-    await h.config(cfg)
-    assert.equal(resolve(cfg.skills.paths.at(-1)), resolve(declared))
-  })
-
-  test("skill paths and other skill settings are preserved", async () => {
-    const h = await build()
-    const cfg = { skills: { paths: ["/existing/skills"], urls: ["https://example.com"] } }
-    await h.config(cfg)
-    assert.ok(cfg.skills.paths.includes("/existing/skills"))
-    assert.deepEqual(cfg.skills.urls, ["https://example.com"])
+    const skill = readSkill()
+    assert.equal(skill.name, "casper")
+    assert.equal(resolve(dirname(dirname(skill.path))), resolve(declared))
   })
 })
 
@@ -503,32 +427,32 @@ describe("progress mirror", () => {
     assert.equal(progressActions("not-an-array"), null)
   })
 
-  test("todo.updated with a missing todos list leaves the bar untouched", async () => {
+  test("a tool result with no todos list leaves the bar untouched", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("todo.updated", { sessionID: "root" }))
+    await h.handle(ev("session.tool.success", { sessionID: "root", metadata: {} }))
     assert.deepEqual(calls, [])
   })
 
-  test("todo.updated on the root session drives the bar", async () => {
+  test("the todo tool's result on the root session drives the bar", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+    await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos: [
       { content: "a", status: "completed" },
       { content: "b", status: "in_progress" },
-    ]}))
+    ] }}))
     assert.deepEqual(calls, [
       ["progress", "set", "--total", "2", "--current", "2", "--label=b"]])
   })
 
-  test("todo.updated on a child session is ignored", async () => {
+  test("the todo tool's result on a child session is ignored", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("todo.updated", { sessionID: "child", todos: [
-      { content: "b", status: "in_progress" }]}))
+    await h.handle(ev("session.tool.success", { sessionID: "child", metadata: { todos: [
+      { content: "b", status: "in_progress" }] }}))
     assert.deepEqual(calls, [])
   })
 })
@@ -543,52 +467,52 @@ describe("turn-end reconciliation", () => {
     // bar the agent had just set, seconds after a turn that ended to let
     // background work run — and nothing was left running to set it again.
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
     calls.length = 0
     answers.bar = true
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, [...READS, ["status", "set", "working"]])
   })
 
   test("a bar left standing over a finished todo list is cleared", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos: [
       { content: "a", status: "completed" },
       { content: "b", status: "completed" },
-    ]}))
+    ] }}))
     calls.length = 0
     answers.bar = true
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, [...READS, ["status", "set", "done"], ["progress", "clear"]])
   })
 
   test("a genuinely in-flight task keeps its bar across the boundary", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos: [
       { content: "a", status: "completed" },
       { content: "b", status: "in_progress" },
-    ]}))
+    ] }}))
     calls.length = 0
     answers.bar = true
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, [...READS, ["status", "set", "working"]])
   })
 
-  test("session.idle reconciles the same way session.status idle does", async () => {
+  test("an interrupted turn reconciles the same way a finished one does", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos: [
       { content: "a", status: "completed" },
-    ]}))
+    ] }}))
     calls.length = 0
     answers.bar = true
-    await h.event(ev("session.idle", { sessionID: "root" }))
+    await h.handle(ev("session.execution.interrupted", { sessionID: "root", reason: "user" }))
     assert.deepEqual(calls, [...READS, ["status", "set", "done"], ["progress", "clear"]])
   })
 
@@ -597,14 +521,14 @@ describe("turn-end reconciliation", () => {
     // the new session.created, turn end would read them as work that is over
     // and clear a bar belonging to the session that just started.
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("todo.updated", { sessionID: "root", todos: [
-      { content: "b", status: "completed" }]}))
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos: [
+      { content: "b", status: "completed" }] }}))
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
     calls.length = 0
-    await h.event(ev("session.idle", { sessionID: "root" }))
+    await h.handle(ev("session.execution.interrupted", { sessionID: "root", reason: "user" }))
     assert.deepEqual(calls, [...READS, ["status", "set", "done"]])
   })
 
@@ -631,15 +555,15 @@ describe("turn-end reconciliation", () => {
 
   test("a turn that ends with every remaining step cancelled drops its bar", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos: [
       { content: "a", status: "completed" },
       { content: "b", status: "cancelled" },
-    ]}))
+    ] }}))
     calls.length = 0
     answers.bar = true
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, [...READS, ["status", "set", "done"], ["progress", "clear"]])
   })
 
@@ -649,26 +573,26 @@ describe("turn-end reconciliation", () => {
     // that verdict with one inferred from the turn boundary alone — the one
     // state nothing here can reach on its own.
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
     calls.length = 0
     answers.status = "blocked"
     answers.bar = true
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, READS)
   })
 
   test("an error is not reported over, but the bar is still reconciled", async () => {
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
-    await h.event(ev("todo.updated", { sessionID: "root", todos: [
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
+    await h.handle(ev("session.tool.success", { sessionID: "root", metadata: { todos: [
       { content: "a", status: "completed" },
-    ]}))
+    ] }}))
     calls.length = 0
     answers.status = "error"
     answers.bar = true
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, [...READS, ["progress", "clear"]])
   })
 
@@ -676,12 +600,12 @@ describe("turn-end reconciliation", () => {
     // An older CLI without the read verbs, or a stopped app: the turn ends
     // exactly as it did before either read existed.
     const h = await build()
-    await h.event(ev("session.created", { info: { id: "root" } }))
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "busy" } }))
+    await h.handle(ev("session.created", { sessionID: "root" }))
+    await h.handle(ev("session.execution.started", { sessionID: "root" }))
     calls.length = 0
     answers.status = null
     answers.bar = null
-    await h.event(ev("session.status", { sessionID: "root", status: { type: "idle" } }))
+    await h.handle(ev("session.execution.succeeded", { sessionID: "root" }))
     assert.deepEqual(calls, [...READS, ["status", "set", "done"]])
   })
 

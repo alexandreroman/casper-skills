@@ -1,8 +1,8 @@
-// opencode 2: the server part (casper.js `setup`) and the TUI part (tui.js).
+// The TUI part (tui.js) and the server part (casper.js `setup`).
 //
 // Every event fixture below is a payload opencode 2.3.0 sent in a real session
-// (2026-11-13), trimmed of fields nothing here reads. opencode 1's fixtures
-// live in casper.test.js; the two generations share one set of handlers.
+// (2026-11-13), trimmed of fields nothing here reads. The sidebar handlers the
+// TUI part feeds are tested on their own in casper.test.js.
 import { test, describe, beforeEach } from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url"
 import plugin, { CASPER_RPC, readSkill } from "../../.opencode/plugin/casper.js"
 import tui from "../../.opencode/plugin/tui.js"
 
-const { createTuiHandlers, translate } = tui.__test
+const { createTuiHandlers } = tui.__test
 
 const DIR = "/private/tmp/ocprobe/work"
 const ROOT = "ses_e2ba3338bffePhJHD0PKbMOx6P"
@@ -66,7 +66,7 @@ function stubCasper() {
   })
 }
 
-// What opencode 2's TUI client answers for a session.
+// What opencode's TUI client answers for a session.
 const SESSIONS = {
   [ROOT]: { id: ROOT, location: { directory: DIR } },
   [CHILD]: { id: CHILD, parentID: ROOT, location: { directory: DIR } },
@@ -103,14 +103,14 @@ const READS = [["status", "get"], ["progress", "get"]]
 
 // --- the TUI part -----------------------------------------------------------
 
-describe("opencode 2 TUI part", () => {
+describe("TUI part", () => {
   beforeEach(() => {
     process.env.CASPER_WORKSPACE_ID = "test-ws"
     stubCasper()
   })
 
   test("default export is a TUI definition, and the module exports nothing else", async () => {
-    // opencode 1 auto-loads this file in this repository: no stray exports.
+    // opencode also loads this file as a server plugin in this repository.
     assert.equal(typeof tui.id, "string")
     assert.equal(typeof tui.setup, "function")
     const mod = await import("../../.opencode/plugin/tui.js")
@@ -128,7 +128,7 @@ describe("opencode 2 TUI part", () => {
   })
 
   test("loaded as a server plugin (no `data`), it does nothing and never throws", async () => {
-    // opencode 2 discovers .opencode/plugin/*.js as server plugins in this
+    // opencode discovers .opencode/plugin/*.js as server plugins in this
     // repository's own checkout, so setup also meets a server context.
     assert.equal(await tui.setup({ location: { directory: DIR }, session: {} }), undefined)
     assert.deepEqual(calls, [])
@@ -153,7 +153,7 @@ describe("opencode 2 TUI part", () => {
     assert.deepEqual(calls, [])
   })
 
-  test("a session lookup slower than opencode 1's 250 ms still adopts the session", async () => {
+  test("a session lookup slower than 250 ms still adopts the session", async () => {
     // The TUI asks the shared server over HTTP; a timed-out lookup is cached
     // as "skip" for good, which would leave a resumed session untracked.
     const ctx = tuiContext()
@@ -192,7 +192,7 @@ describe("opencode 2 TUI part", () => {
   })
 
   test("the agent's own brace-group notify is not followed by a generic one", async () => {
-    // opencode 2 splits the brace group into one resource per command, so
+    // opencode splits the brace group into one resource per command, so
     // with "casper *" allowed the `[ -n … ]` test still asks for approval.
     answers.status = "blocked"
     const command = '[ -n "$CASPER_WORKSPACE_ID" ] && { casper notify --message="Need your approval for git status"; casper status set blocked; } || true'
@@ -259,11 +259,18 @@ describe("opencode 2 TUI part", () => {
     assert.equal(ctx.attaches.length, 1)
   })
 
-  test("events opencode 1 had and opencode 2 does not send are not needed", () => {
-    // Nothing here may depend on session.status, session.idle or todo.updated:
-    // opencode 2.3.0 never sent them in a real session.
-    assert.equal(translate({ type: "session.text.delta", data: { sessionID: ROOT } }), null)
-    assert.equal(translate({ type: "session.tool.success", data: { sessionID: ROOT, metadata: {} } }), null)
+  test("the streaming events of a real turn change nothing on their own", async () => {
+    // Most of what opencode 2.3.0 sends during a turn is streaming; only the
+    // events above may reach the sidebar.
+    const tuiHandlers = await feed(tuiContext(), created(), started())
+    calls.length = 0
+    for (const e of [
+      { type: "session.text.delta", data: { sessionID: ROOT, delta: "hi" } },
+      { type: "session.step.started", data: { sessionID: ROOT } },
+      { type: "session.tool.success", data: { sessionID: ROOT, metadata: { truncated: false } } },
+      { type: "session.renamed", data: { sessionID: ROOT, title: "x" } },
+    ]) await tuiHandlers.enqueue(e)
+    assert.deepEqual(calls, [])
   })
 })
 
@@ -293,15 +300,15 @@ function runTransform(state, existing = []) {
   return skills
 }
 
-describe("opencode 2 server part", () => {
-  test("one default export serves both generations", () => {
+describe("server part", () => {
+  test("the default export is an opencode plugin definition, with no opencode 1 entry point", () => {
     assert.equal(plugin.id, "casper")
-    assert.equal(typeof plugin.server, "function")
     assert.equal(typeof plugin.setup, "function")
+    assert.equal(plugin.server, undefined)
   })
 
   test("it ignores the server process's CASPER_WORKSPACE_ID: inert until attached", async () => {
-    // On opencode 2's shared server this variable belongs to whichever
+    // On opencode's shared server this variable belongs to whichever
     // terminal started the server (measured: ws-A while the session ran in ws-B).
     process.env.CASPER_WORKSPACE_ID = "ws-A"
     const ctx = serverContext()

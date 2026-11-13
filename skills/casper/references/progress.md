@@ -35,7 +35,7 @@ name:
 | Claude Code | its task tools | task tool |
 | Codex, if it lists `update_plan` | its plan tool | task tool |
 | Codex 0.169's code-mode models (no plan tool) | — | by hand |
-| opencode, if it lists `todowrite` (opencode 2 offers it only with `experimental.todo` on) | its todo list tool | task tool |
+| opencode, if it lists `todowrite` (only with `experimental.todo` on) | its todo list tool | task tool |
 | anything with no such tool | — | by hand |
 
 On the task-tool path you **never run `casper progress` yourself**. The
