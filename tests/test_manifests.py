@@ -35,6 +35,18 @@ class TestManifests(unittest.TestCase):
     def test_package_main_is_the_opencode_plugin(self):
         self.assertEqual(load("package.json")["main"], ".opencode/plugin/casper.js")
 
+    def test_package_exports_both_opencode_2_parts(self):
+        # opencode 2 ignores `main`: a plugin directory loads only through
+        # `exports` (or root-level server/index/tui files), and without the
+        # `./tui` part nothing drives the sidebar on opencode 2's shared
+        # server. Measured on opencode 2.3.0, which loaded nothing at all
+        # from this package while it had only `main`.
+        exports = load("package.json")["exports"]
+        self.assertEqual(exports["."], "./.opencode/plugin/casper.js")
+        self.assertEqual(exports["./tui"], "./.opencode/plugin/tui.js")
+        for target in (exports["."], exports["./tui"]):
+            self.assertTrue(os.path.isfile(os.path.join(ROOT, target)), target)
+
     def test_package_declares_no_dependencies(self):
         pkg = load("package.json")
         self.assertNotIn("dependencies", pkg)

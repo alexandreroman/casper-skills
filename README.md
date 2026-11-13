@@ -61,7 +61,32 @@ codex plugin add casper@casper
 ### opencode
 
 opencode installs a plugin straight from a Git repository, so this one is
-distributed exactly like the other two — no npm registry in the picture:
+distributed exactly like the other two — no npm registry in the picture.
+
+On **opencode 2**:
+
+```
+opencode plugin add github:alexandreroman/casper-skills
+```
+
+That adds the package to `plugins` in your global `opencode.jsonc`. The same
+entry by hand, for a Git spec or a local checkout (a directory, never a file):
+
+```jsonc
+{
+  "plugins": ["github:alexandreroman/casper-skills"]
+}
+```
+
+opencode 2 does not run opencode 1 plugins, and ignores a `plugin` key left
+over from opencode 1: rename it to `plugins`. The package ships two parts. The
+server part runs in opencode's background server, which every terminal shares;
+the TUI part runs in each terminal and is the one that knows which Casper
+workspace it belongs to. Both are loaded from that one entry. Restart
+opencode, and run `opencode service restart` to reload the shared server, to
+pick up an update.
+
+On **opencode 1**:
 
 ```
 opencode plugin github:alexandreroman/casper-skills -g
@@ -180,9 +205,15 @@ codex plugin add casper@casper   # again after every edit; it does refresh
 `codex exec --dangerously-bypass-hook-trust` skips the `/hooks` trust prompt
 for one non-interactive run, which is what makes this loop bearable.
 
-opencode picks up a plugin file dropped into `~/.config/opencode/plugin/` or a
-project's `.opencode/plugin/`; a symlink to the checkout is enough, and it
-brings its skill with it.
+opencode 1 picks up a plugin file dropped into `~/.config/opencode/plugin/` or
+a project's `.opencode/plugin/`; a symlink to the checkout is enough, and it
+brings its skill with it. opencode 2 loads a plugin directory instead: list
+the checkout in `plugins` (see above). Its `package.json` `exports` name the
+server part (`casper.js`) and the TUI part (`tui.js`); opencode 2 ignores
+`main`. To keep a probe away from your real setup, give it its own
+`XDG_CONFIG_HOME`, and either run `opencode --standalone` or give that config
+its own `opencode service set port`: the shared server's port is
+machine-wide.
 
 ## Running the tests
 

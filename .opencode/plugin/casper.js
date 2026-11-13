@@ -5,6 +5,11 @@
  * bus and drives the `casper` CLI. It writes nothing, anywhere: the guidance
  * file it points opencode at ships inside this plugin's own directory.
  *
+ * One default export serves both opencode generations. opencode 1 calls
+ * `server()`, which returns the handlers below. opencode 2 calls `setup()`,
+ * the server part further down, and loads tui.js as the TUI part, which feeds
+ * these same handlers from the terminal the workspace belongs to.
+ *
  * Three things this has to get right, and which the tests pin down:
  *   - subagent sessions must not drive the sidebar, so only the root session
  *     is tracked;
@@ -19,6 +24,7 @@
  * wrong session.
  */
 import { spawn, spawnSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 // Regex-stable on purpose: the Casper app probes the installed plugin file for
@@ -187,7 +193,21 @@ export function turnEndActions(todos, state, barUp) {
   return [["status", "set", stillUp ? "working" : "done"], ...clears]
 }
 
-export function createHandlers({ client }) {
+/**
+ * The event handlers behind both opencode generations.
+ *
+ * opencode 1 calls them directly from its plugin hooks (`server`, below).
+ * opencode 2 has no such hooks in the process that knows the workspace, so
+ * its TUI part (tui.js) translates v2 events into these same calls — which is
+ * why one set of handlers, pinned against the other agents by
+ * tests/test_cross_agent_conformance.sh, serves both.
+ *
+ * `lookup(sessionID)` answers whether a session must not be adopted as root;
+ * by default it asks opencode 1's `client.session.list()` whether the session
+ * is a subagent's. It may throw or hang: both read as "skip", and that
+ * verdict is cached, so `lookupTimeoutMs` (default 250) must cover a slow one.
+ */
+export function createHandlers({ client, lookup, lookupTimeoutMs } = {}) {
   let rootSessionID = null
   let busy = false
   // Last todo list seen, so turn end can reconcile the bar against it. Kept
@@ -235,7 +255,13 @@ export function createHandlers({ client }) {
   // this hot path, so the negative verdict is cached exactly like a real
   // one, and a hanging client is bounded by a timer that is always cleared
   // so it cannot keep the process alive.
-  const CHILD_LOOKUP_TIMEOUT_MS = 250
+  const CHILD_LOOKUP_TIMEOUT_MS = lookupTimeoutMs ?? 250
+
+  const skip = lookup ?? (async (sessionID) => {
+    const sessions = await client?.session?.list?.()
+    const found = sessions?.data?.find((s) => s.id === sessionID)
+    return Boolean(found?.parentID)
+  })
 
   const childCache = new Map()
   const isChild = async (sessionID) => {
@@ -246,9 +272,7 @@ export function createHandlers({ client }) {
       const timedOut = new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error("child lookup timed out")), CHILD_LOOKUP_TIMEOUT_MS)
       })
-      const sessions = await Promise.race([client?.session?.list?.(), timedOut])
-      const found = sessions?.data?.find((s) => s.id === sessionID)
-      const result = Boolean(found?.parentID)
+      const result = Boolean(await Promise.race([skip(sessionID), timedOut]))
       childCache.set(sessionID, result)
       return result
     } catch {
@@ -418,12 +442,120 @@ export function createHandlers({ client }) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// opencode 2
+//
+// opencode 2 runs plugins in one background server shared by every terminal
+// on the machine, so this process's environment is whatever started that
+// server, not the workspace a session runs in: the server part must never
+// read CASPER_WORKSPACE_ID. The TUI part (tui.js) runs in the workspace's own
+// terminal, knows the workspace, drives the sidebar, and tells this part over
+// RPC that its location is a Casper workspace. Only then does this part add
+// the guidance and the skill there.
+// ---------------------------------------------------------------------------
+
+// The RPC the TUI part calls. A plain object: opencode's `Rpc.define` only
+// validates error names, and importing it would make this plugin depend on
+// opencode's package, which opencode 1 does not ship.
+export const CASPER_RPC = {
+  id: "casper",
+  methods: {
+    attach: {
+      input: { type: "object" },
+      output: { type: "object" },
+    },
+  },
+  events: {},
+}
+
+const SKILL_FILE = fileURLToPath(new URL("../../skills/casper/SKILL.md", import.meta.url))
+
+/** Read a skill file into opencode 2's `Skill.Info`, or null if unreadable. */
+export function readSkill(path = SKILL_FILE) {
+  try {
+    const text = readFileSync(path, "utf8")
+    const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text)
+    if (!match) return null
+    const field = (name) => new RegExp(`^${name}:[ \\t]*(.*?)\\r?$`, "m").exec(match[1])?.[1].trim()
+    const name = field("name")
+    if (!name) return null
+    return { id: name, name, description: field("description"), path, content: match[2] }
+  } catch {
+    return null
+  }
+}
+
+function readGuidance() {
+  try {
+    return readFileSync(GUIDANCE_PATH, "utf8")
+  } catch {
+    return null
+  }
+}
+
+/**
+ * opencode 2's server part. One instance per location (directory); inert
+ * until the TUI part attaches it. Every call into opencode is guarded: a
+ * failure here leaves the session without guidance, never broken.
+ */
+export async function setupServer(ctx) {
+  let attached = false
+  const guidance = readGuidance()
+  const skill = readSkill()
+
+  try {
+    await ctx.skill.transform((editor) => {
+      if (!attached || !skill) return
+      // A copy the user installed themselves wins, as with opencode 1.
+      if (editor.get(skill.id)) return
+      editor.add({ ...skill })
+    })
+  } catch {}
+
+  try {
+    // `context` runs before every agent-loop model request, with the system
+    // prompt rebuilt each time, so pushing on every call is what keeps the
+    // guidance there — and it reaches a session's very first request, which
+    // an instruction entry put after `session.created` does not.
+    await ctx.session.hook("context", (event) => {
+      if (!attached || !guidance || !Array.isArray(event?.system)) return
+      event.system.push({ type: "text", text: guidance })
+    })
+  } catch {}
+
+  // Registered last: an `attach` arriving earlier would reload skills before
+  // the transform above exists, and the skill would stay missing.
+  try {
+    await ctx.rpc.register(CASPER_RPC, {
+      attach: async () => {
+        if (!attached) {
+          attached = true
+          try { await ctx.skill.reload() } catch {}
+        }
+        return { attached: true }
+      },
+    })
+  } catch {
+    // Without the RPC nothing can attach; the part stays inert.
+  }
+}
+
 // __test hangs off the default export because tests import the plugin as a
 // single default — `plugin.__test.setRunner(...)` — mirroring how opencode
 // path-loads the module.
+//
+// One default export serves both generations, as opencode documents: version
+// 1 calls `server()`, version 2 calls `setup()` and ignores `server`.
 const plugin = {
   id: "casper",
   server: async (input) => createHandlers(input ?? {}),
+  setup: async (ctx) => {
+    try {
+      await setupServer(ctx)
+    } catch {
+      // Never throw into opencode.
+    }
+  },
 }
 
 plugin.__test = {

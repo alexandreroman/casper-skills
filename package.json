@@ -4,8 +4,19 @@
   "description": "Casper integration for coding agents.",
   "type": "module",
   "main": ".opencode/plugin/casper.js",
+  "exports": {
+    ".": "./.opencode/plugin/casper.js",
+    "./tui": "./.opencode/plugin/tui.js",
+    "./package.json": "./package.json"
+  },
   "license": "Apache-2.0",
   "author": "Alexandre Roman <alexandre.roman@gmail.com>",
   "homepage": "https://github.com/alexandreroman/casper-skills",
-  "files": [".opencode", "hooks", "skills", "LICENSE", "README.md"]
+  "files": [
+    ".opencode",
+    "hooks",
+    "skills",
+    "LICENSE",
+    "README.md"
+  ]
 }
