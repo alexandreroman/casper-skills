@@ -10,7 +10,7 @@ ever reported anything, not that the work finished.
 
 Two shapes of input converge here. Claude Code and Codex report task changes
 one at a time, so their entry point keeps a per-session mirror on disk and
-feeds the whole mirror in. opencode's todo.updated carries the entire list on
+feeds the whole mirror in. opencode's todo tool returns the entire list on
 every change, so it feeds that list in directly and never touches the mirror.
 """
 import contextlib
