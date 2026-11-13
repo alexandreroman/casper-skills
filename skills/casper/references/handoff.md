@@ -154,7 +154,8 @@ their agent's session list without renaming it by hand. Follow
 `references/workspace.md`'s "Naming the session after the workspace":
 it lists the `<name-flag>` per agent CLI (`-n` for `claude`; a CLI without
 one is launched unnamed, `<name-flag> <name>` dropped) and the form of
-`<name>` that Casper keeps unchanged and that needs no quoting.
+`<name>` that Casper keeps unchanged and that needs no quoting. It also
+says why `codex` is launched as `codex --no-daemon`.
 
 ### Step 4: report the handoff
 

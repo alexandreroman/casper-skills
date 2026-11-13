@@ -84,6 +84,10 @@ grep -q '^allowed-tools:.*Bash(\[ -n "\$CASPER_WORKSPACE_ID" \])' "$FILE" || fai
 grep -q 'sandbox_permissions: require_escalated' "$FILE" || fail "missing Codex elevated socket-access guidance"
 grep -q 'prefix_rule: \["casper"\]' "$FILE" || fail "missing scoped Casper approval guidance"
 
+# A guard in front of the `casper` call keeps Codex's prefix rule from
+# matching, so every call asks for approval and notifies the user again.
+grep -q 'Run the guard on its own' "$FILE" || fail "the guard must not prefix the Codex call"
+
 # Size cap: the point of the split is that this file stays resident. Without a
 # cap the routing table grows back into the manual it replaced.
 lines="$(wc -l < "$FILE" | tr -d ' ')"

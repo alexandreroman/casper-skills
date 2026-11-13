@@ -18,4 +18,5 @@ grep -q '<workspace>-<purpose>' "$FILE" || fail "missing the <workspace>-<purpos
 grep -q '`<name-flag>` is `-n` (long form `--name`)' "$FILE" \
   || fail "claude's name flag must be -n / --name"
 grep -q "launch them unnamed" "$FILE" || fail "must say an agent CLI without a name flag is launched unnamed"
+grep -q 'launch it as `codex --no-daemon`' "$FILE" || fail "codex must be launched with --no-daemon"
 echo "PASS"

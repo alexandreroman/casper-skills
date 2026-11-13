@@ -10,7 +10,7 @@ class TestHooksJson(unittest.TestCase):
     def test_declares_every_expected_event(self):
         for event in ("SessionStart", "UserPromptSubmit", "PreToolUse",
                       "PostToolUse", "Stop", "StopFailure", "SessionEnd",
-                      "Notification", "PermissionRequest"):
+                      "Notification", "PermissionRequest", "Interrupt"):
             self.assertIn(event, HOOKS, f"{event} missing from hooks.json")
 
     def test_post_tool_use_matches_both_dialects(self):
@@ -37,6 +37,28 @@ class TestHooksJson(unittest.TestCase):
         # cannot be the one-line Bash script it used to be.
         for cmd in commands("Stop"):
             self.assertIn("hooks/stop.py", cmd)
+
+    def test_interrupt_ends_the_turn_like_stop(self):
+        # Codex fires Interrupt instead of Stop when the user aborts a turn;
+        # without it the sidebar holds `working` for a turn that is over.
+        # Claude Code does not know the event and ignores the entry.
+        for cmd in commands("Interrupt"):
+            self.assertIn("hooks/stop.py", cmd)
+
+    def test_every_command_passes_the_codex_server_guard_first(self):
+        # Codex's shared background server runs every hook with the
+        # environment of the terminal that started it, so each hook has to
+        # check whose session it is before it writes to a sidebar
+        # (hooks/lib/codex_server.py). SessionStart names itself, so a
+        # skipped session gets the warning instead of the guidance.
+        guard = "${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh"
+        for event in HOOKS:
+            for cmd in commands(event):
+                self.assertIn(guard, cmd, f"{event} command skips the guard")
+                self.assertLess(cmd.index(guard), cmd.rindex("/hooks/"),
+                                f"{event}: the guard must run before the hook")
+        for cmd in commands("SessionStart"):
+            self.assertIn('codex-guard.sh" session-start &&', cmd)
 
     def test_stop_failure_routes_to_its_own_entry_point(self):
         # StopFailure fires instead of Stop when the turn dies on an API
@@ -80,7 +102,9 @@ class TestHooksJson(unittest.TestCase):
         # exception: it reads the workspace back (state, then bar) before it
         # decides what to report, so it can spend four capped calls where the
         # others spend at most two.
-        budgets = {"Stop": 6}
+        # Interrupt runs the same stop.py, but Codex, its only sender, clamps
+        # an Interrupt hook to 3 seconds and warns at every startup otherwise.
+        budgets = {"Stop": 6, "Interrupt": 3}
         for event in HOOKS:
             for group in HOOKS[event]:
                 for hook in group["hooks"]:

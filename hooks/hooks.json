@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/session-start.py\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" session-start && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/session-start.py\" || true",
             "timeout": 3
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/user-prompt-submit.sh\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/user-prompt-submit.sh\" || true",
             "timeout": 3
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/pre-tool-use.sh\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/pre-tool-use.sh\" || true",
             "timeout": 3
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/tasks.py\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/tasks.py\" || true",
             "timeout": 3
           }
         ]
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/tasks.py\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/tasks.py\" || true",
             "timeout": 3
           }
         ]
@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/post-tool-use.sh\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/post-tool-use.sh\" || true",
             "timeout": 3
           }
         ]
@@ -69,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/stop.py\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/stop.py\" || true",
             "timeout": 6
           }
         ]
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/stop-failure.sh\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/stop-failure.sh\" || true",
             "timeout": 3
           }
         ]
@@ -91,7 +91,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/session-end.sh\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/session-end.sh\" || true",
             "timeout": 3
           }
         ]
@@ -102,7 +102,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/blocked.py\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/blocked.py\" || true",
             "timeout": 3
           }
         ]
@@ -113,7 +113,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/blocked.py\" || true",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/blocked.py\" || true",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CASPER_WORKSPACE_ID\" ] && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/codex-guard.sh\" && \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/stop.py\" || true",
             "timeout": 3
           }
         ]
