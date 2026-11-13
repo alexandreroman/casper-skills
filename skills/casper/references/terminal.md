@@ -84,9 +84,10 @@ place.
 
 `codex` takes one flag of another kind: launch it as `codex --no-daemon`.
 Without it, Codex runs the session in a background server shared by every
-Codex session on the machine, with the environment of the terminal that
-started that server, so the integration switches itself off for the new
-session unless that server was started from this same workspace.
+Codex session of the user (one per `CODEX_HOME`), with the environment of
+the terminal that started that server, so the integration switches itself
+off for the new session unless that server was started from this same
+workspace.
 
 To have that instance start on a specific task right away (e.g. "run a
 code review here") instead of opening an empty agent prompt, give it an

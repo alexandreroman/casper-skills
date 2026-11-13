@@ -35,4 +35,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        status = main()
+    except Exception:
+        # A guard that cannot run must not switch the integration off.
+        status = 0
+    sys.exit(status)

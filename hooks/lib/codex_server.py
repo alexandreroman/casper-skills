@@ -38,20 +38,25 @@ def _inside(path: str, root: str) -> bool:
 def belongs(workspaces, workspace_id: str, cwd: str):
     """Whether a session in `cwd` belongs to workspace `workspace_id`.
 
-    True or False when `workspaces` (`casper workspace list`'s answer) settles
-    it, None when it cannot: no answer, an unknown workspace, or a CLI too old
-    to report paths. None lets the hook run, as it did before this check
-    existed — a check that cannot be made must not switch the integration off.
+    The session belongs to the workspace with the longest path containing
+    `cwd`, so a worktree nested inside another workspace's directory is told
+    apart from it. True or False when `workspaces` (`casper workspace list`'s
+    answer) settles it, None when it cannot: no answer, an unknown workspace,
+    or a CLI too old to report paths. None lets the hook run, as it did before
+    this check existed — a check that cannot be made must not switch the
+    integration off.
     """
     if not isinstance(workspaces, list) or not workspace_id:
         return None
-    for ws in workspaces:
-        if not isinstance(ws, dict):
-            continue
-        if workspace_id not in (ws.get("workspace"), ws.get("name")):
-            continue
+    entries = [ws for ws in workspaces if isinstance(ws, dict)]
+    target = [ws for ws in entries if workspace_id in (ws.get("workspace"), ws.get("name"))]
+    if not target or not isinstance(target[0].get("path"), str) or not target[0]["path"]:
+        return None
+    best = None
+    for ws in entries:
         path = ws.get("path")
-        if not isinstance(path, str) or not path:
-            return None
-        return _inside(cwd, path)
-    return None
+        if isinstance(path, str) and path and _inside(cwd, path):
+            length = len(os.path.realpath(path))
+            if best is None or length > best[0]:
+                best = (length, ws)
+    return best is not None and best[1] is target[0]

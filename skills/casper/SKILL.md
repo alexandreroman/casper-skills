@@ -27,8 +27,8 @@ never allowed to interrupt, block, or fail the task at hand.
 
 `casper` reaches the app through a socket outside Codex's sandbox, which
 `allowed-tools` cannot open: request `sandbox_permissions: require_escalated`,
-and `prefix_rule: ["casper"]`, never broader. Run the guard on its own: with it
-in front of the `casper` call, no rule matches and every call asks again.
+and `prefix_rule: ["casper"]`, never broader. Run the guard on its own, then a
+plain `casper …`: with the guard in front, no rule matches, every call re-asks.
 
 ## Tell the user when you need them
 

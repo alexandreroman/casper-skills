@@ -38,6 +38,22 @@ class TestBelongs(unittest.TestCase):
         # /x/proj-a-b is not inside /x/proj-a, however the strings compare.
         self.assertIs(codex_server.belongs(self.listing(), "ws-id", self.sibling), False)
 
+    def test_a_workspace_nested_inside_another_is_its_own(self):
+        # A worktree checked out inside another workspace's directory: the
+        # innermost workspace containing the session is the session's.
+        nested = os.path.join(self.ws, "sub")
+        listing = self.listing() + [{"workspace": "nested-id", "name": "n", "path": nested}]
+        self.assertIs(codex_server.belongs(listing, "ws-id", nested), False)
+        self.assertIs(codex_server.belongs(listing, "nested-id", nested), True)
+        self.assertIs(codex_server.belongs(listing, "ws-id", self.ws), True)
+
+    def test_the_shape_of_the_real_cli_answer(self):
+        # `casper workspace list` as Casper prints it (checked on the real CLI).
+        listing = [{"branch": "main", "name": "proj-a", "path": self.ws,
+                    "workspace": "3f9e67b9-a128-4d2e-8654-0a975dd27ee4"}]
+        self.assertIs(codex_server.belongs(
+            listing, "3f9e67b9-a128-4d2e-8654-0a975dd27ee4", self.ws), True)
+
     def test_the_workspace_name_also_identifies_it(self):
         self.assertIs(codex_server.belongs(self.listing(), "proj-a", self.ws), True)
 

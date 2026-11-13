@@ -72,8 +72,11 @@ def main() -> None:
 
     # Two reads and up to two writes inside one hook budget (hooks.json), so
     # no single call may spend it all.
-    state = casper.agent_state(timeout=1)
-    bar_up = casper.bar_is_up(timeout=1)
+    # Interrupt runs this too, under Codex's fixed 3 seconds instead of Stop's
+    # 6, so each call gets half the cap there.
+    cap = 0.5 if payload.get("hook_event_name") == "Interrupt" else 1
+    state = casper.agent_state(timeout=cap)
+    bar_up = casper.bar_is_up(timeout=cap)
     try:
         dialog_ended = dialog.close(payload.get("session_id", "default"))
     except Exception:
@@ -84,7 +87,7 @@ def main() -> None:
         state = None
     for args in progress.turn_end_actions(tasks, state, bar_up,
                                           background=subagent_running(payload)):
-        casper.run(args, timeout=1)
+        casper.run(args, timeout=cap)
 
     # A wait the agent announced with its own `casper notify` ends with the
     # turn; a prompt in a later turn is one the user has not been told about
