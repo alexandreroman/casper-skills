@@ -32,9 +32,6 @@ class TestManifests(unittest.TestCase):
         # hooks file error. manifest.hooks is only for extra hook files.
         self.assertNotIn("hooks", load(".claude-plugin", "plugin.json"))
 
-    def test_package_main_is_the_opencode_plugin(self):
-        self.assertEqual(load("package.json")["main"], ".opencode/plugin/casper.js")
-
     def test_package_exports_both_opencode_parts(self):
         # opencode ignores `main`: a plugin directory loads only through
         # `exports` (or root-level server/index/tui files), and without the

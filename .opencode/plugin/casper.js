@@ -42,12 +42,11 @@ const GUIDANCE_PATH = fileURLToPath(new URL("./guidance.md", import.meta.url))
 const CASPER_CALL = /(?:^|[;&|({\n])\s*casper\s+([a-z]+)/g
 
 /**
- * The `casper` subcommands a tool call runs, in order. Empty for none.
+ * The `casper` subcommands a shell call runs, in order. Empty for none.
  * Mirrors hooks/lib/notified.py::casper_subcommands.
  */
-export function casperSubcommands(args) {
-  let command = args?.command
-  if (Array.isArray(command)) command = command.map(String).join("\n")
+function casperSubcommands(input) {
+  const command = input?.command
   if (typeof command !== "string") return []
   return [...command.matchAll(CASPER_CALL)].map((m) => m[1])
 }
@@ -220,7 +219,8 @@ export function turnEndActions(todos, state, barUp) {
  * `lookup(sessionID)` answers whether a session must not be adopted as root
  * (a subagent's, or one at another location). It may throw or hang: both read
  * as "skip", and that verdict is cached, so `lookupTimeoutMs` must cover a
- * slow answer. Without a lookup nothing is ever adopted.
+ * slow answer — the TUI part's lookup is a round-trip to the shared server.
+ * Without a lookup nothing is ever adopted.
  */
 export function createHandlers({ lookup, lookupTimeoutMs = 2000 } = {}) {
   let rootSessionID = null

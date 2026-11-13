@@ -17,14 +17,8 @@ import { CASPER_RPC, createHandlers } from "./casper.js"
 
 const ATTACH_ATTEMPTS = 3
 const ATTACH_BACKOFF_MS = 300
-// Over HTTP to the shared server: give the lookup room, since a timed-out one
-// is cached as "skip" for good.
-const LOOKUP_TIMEOUT_MS = 2000
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-// The generated client answers `{ data }`; plugin contexts answer the value.
-const unwrap = (response) => response?.data ?? response
 
 /**
  * The TUI part's behaviour, given its plugin context. Split from `setup` so
@@ -49,11 +43,11 @@ function createTuiHandlers(context) {
 
   // Skip subagents' sessions and every session of another location.
   const lookup = async (sessionID) => {
-    const info = unwrap(await context.client.session.get({ sessionID }))
+    const info = await context.client.session.get({ sessionID })
     return Boolean(info?.parentID) || info?.location?.directory !== directory
   }
 
-  const handlers = createHandlers({ lookup, lookupTimeoutMs: LOOKUP_TIMEOUT_MS })
+  const handlers = createHandlers({ lookup })
 
   const handle = async (event) => {
     if (event?.type === "session.created") {

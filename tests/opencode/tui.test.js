@@ -87,7 +87,8 @@ function tuiContext({ attachFails = 0 } = {}) {
           return { attached: true }
         },
       }),
-      session: { get: async ({ sessionID }) => ({ data: SESSIONS[sessionID] }) },
+      // The session itself, not `{ data }`: measured on opencode 2.3.0.
+      session: { get: async ({ sessionID }) => SESSIONS[sessionID] },
     },
     data: { listen: () => () => {}, location: { default: () => ({ directory: DIR }) } },
   }
@@ -301,10 +302,9 @@ function runTransform(state, existing = []) {
 }
 
 describe("server part", () => {
-  test("the default export is an opencode plugin definition, with no opencode 1 entry point", () => {
+  test("the default export is an opencode plugin definition", () => {
     assert.equal(plugin.id, "casper")
     assert.equal(typeof plugin.setup, "function")
-    assert.equal(plugin.server, undefined)
   })
 
   test("it ignores the server process's CASPER_WORKSPACE_ID: inert until attached", async () => {

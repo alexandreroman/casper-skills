@@ -14,8 +14,9 @@ and no changes to the agent's own configuration or the user's project either.
   only reachable inside a terminal Casper opened.
 - `python3` (ships with Xcode Command Line Tools) — needed by the Claude Code
   and Codex hooks.
-- Node — needed by the opencode plugin; opencode itself ships with a Node
-  runtime, so nothing extra to install there.
+- opencode 2 or later, for the opencode plugin. opencode runs it in its own
+  JavaScript runtime, so there is nothing else to install; Node is only
+  needed to run this repository's opencode tests.
 
 ## Installation
 
@@ -67,7 +68,8 @@ distributed exactly like the other two — no npm registry in the picture:
 opencode plugin add github:alexandreroman/casper-skills
 ```
 
-That adds the package to `plugins` in your global `opencode.jsonc`. By hand,
+That fetches the repository and adds it to `plugins` in your global opencode
+config (`~/.config/opencode/opencode.json` when you have none yet). By hand,
 the same thing is:
 
 ```jsonc
@@ -79,20 +81,23 @@ the same thing is:
 Any Git spec works in that slot — `github:owner/repo`, `git+https://…`,
 `git+ssh://…` for a private clone — or a local checkout (a directory, never a
 file). The skill arrives with the plugin; there is nothing to install
-alongside it. This needs opencode 2 or later: opencode 1 cannot load this
-plugin, and opencode 2 ignores the `plugin` key opencode 1 used, so rename an
-old entry to `plugins`.
+alongside it. opencode 1 cannot load this plugin, and opencode 2 ignores the
+`plugin` key opencode 1 used: rename an old entry to `plugins`.
 
 The package ships two parts, both loaded from that one entry. The server part
 runs in opencode's background server, which every terminal shares; the TUI
 part runs in each terminal, and is the one that knows which Casper workspace
 it belongs to.
 
-opencode checks an unpinned Git plugin for updates when its server starts,
-without installing them. To take an update — say, because Casper just asked
-you to update the integration — run `opencode plugin update`, then
-`opencode service restart` to reload the shared server, and restart any
-running opencode.
+To update — say, because Casper just asked you to update the integration:
+
+```
+opencode plugin update
+```
+
+`opencode plugin check` says whether an update is waiting. The shared server
+reloads the plugin as soon as it is updated; restart opencode in your
+terminals so that they load the new TUI part too.
 
 ## What it does
 
@@ -167,11 +172,10 @@ codex plugin add casper@casper   # again after every edit; it does refresh
 for one non-interactive run, which is what makes this loop bearable.
 
 For opencode, list the checkout in `plugins` (see above). Its `package.json`
-`exports` name the server part (`casper.js`) and the TUI part (`tui.js`);
-opencode ignores `main`. To keep a probe away from your real setup, give it its own
-`XDG_CONFIG_HOME`, and either run `opencode --standalone` or give that config
-its own `opencode service set port`: the shared server's port is
-machine-wide.
+`exports` name the server part (`casper.js`) and the TUI part (`tui.js`). To
+keep a probe away from your real setup, give it its own `XDG_CONFIG_HOME`,
+and either run `opencode --standalone` or give that config its own
+`opencode service set port`: the shared server's port is machine-wide.
 
 ## Running the tests
 
