@@ -1,6 +1,6 @@
 {
   "name": "casper-skills",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Casper integration for coding agents.",
   "type": "module",
   "exports": {
