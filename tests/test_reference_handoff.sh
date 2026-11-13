@@ -23,4 +23,6 @@ grep -q '"Naming the session after the workspace"' "$FILE" \
 grep -q "^### Naming the session after the workspace\$" "$DIR/skills/casper/references/workspace.md" \
   || fail "workspace.md has no section by the title handoff.md points to"
 
+grep -q 'codex --no-daemon' "$FILE" || fail "must say codex is launched with --no-daemon"
+
 echo "PASS"

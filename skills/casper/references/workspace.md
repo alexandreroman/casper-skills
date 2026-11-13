@@ -172,6 +172,13 @@ Only some agent CLIs take a name at launch:
 An agent CLI without one is launched unnamed: drop `<name-flag> <name>`
 from the command, and never pass another flag in its place.
 
+`codex` takes one flag of another kind: launch it as `codex --no-daemon`.
+Without it, Codex runs the session in a background server shared by every
+Codex session on the machine, with the environment of the terminal that
+started that server. The new instance's hooks and `casper` calls would then
+reach that terminal's workspace rather than the new one, so the integration
+switches itself off for that session.
+
 The command is typed before Casper replies, so pick a `<name>` that Casper
 keeps exactly as you typed it: lowercase ASCII letters, digits and single
 `-` between words (`fix-login`, `review-auth`), already in the form the

@@ -33,7 +33,8 @@ name:
 | Harness | The tool | Path |
 |---|---|---|
 | Claude Code | its task tools | task tool |
-| Codex | its plan tool | task tool |
+| Codex, if it lists `update_plan` | its plan tool | task tool |
+| Codex 0.169's code-mode models (no plan tool) | — | by hand |
 | opencode | its todo list tool (write + read) | task tool |
 | anything with no such tool | — | by hand |
 

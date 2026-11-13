@@ -48,6 +48,16 @@ codex plugin add casper@casper
 > changes a hook sends it back for review — check `/hooks` again after every
 > update, not only the first install.
 
+> [!IMPORTANT]
+> In a Casper terminal, start Codex as `codex --no-daemon`. Since 0.169, Codex
+> otherwise runs every session in one background server per `CODEX_HOME`,
+> started with the environment of the first terminal that launched Codex. The
+> hooks and the agent's own commands run there, so they would name that
+> terminal's workspace, not the one you are working in. The integration checks
+> for this: a session under the shared server whose directory lies outside
+> that workspace stays off, and the agent is told why. Starting with
+> `--no-daemon` keeps the session in your terminal, with its own workspace.
+
 ### opencode
 
 opencode installs a plugin straight from a Git repository, so this one is
@@ -106,16 +116,18 @@ lifecycle drives the workspace:
 | What the workspace shows | When |
 |---|---|
 | sidebar **working** | the turn starts, and again on every tool call the agent makes itself (a subagent's tool calls leave the state alone, so one still running after the turn cannot write over its `done` or `blocked`) — and it holds when a turn ends with the progress bar still up, which is what work left running in the background looks like, or, on Claude Code, with a background subagent still running |
-| sidebar **done** | the turn ends with no bar up, or the session ends |
+| sidebar **done** | the turn ends with no bar up, or the session ends — on Codex, a turn you interrupt ends the same way |
 | sidebar **blocked**, plus a notification | the agent needs a decision, a credential, a login or an approval from you — a state it reported itself is never written over by the end of the turn, and one reported for a permission dialog lifts once the approved tool has run. One wait is one notification: when the agent already sent its own, the integration adds none. Claude Code holds a permission prompt's notification until the prompt has gone unanswered for a few seconds, so one you answer straight away sends none |
-| progress bar | the agent's own task, plan or todo list, mirrored step by step and cleared when the work is over — an agent whose harness has no such list drives the bar itself, and that bar stands until it clears it |
+| progress bar | the agent's own task, plan or todo list, mirrored step by step and cleared when the work is over — an agent whose harness has no such list drives the bar itself, and that bar stands until it clears it. Codex 0.169's models run in code mode with no plan tool, so on Codex the agent drives it |
 | bar cleared | the session ends, whatever set the bar |
 | state, bar and info panel reset | a new session starts — a resume or a compact keeps the bar and the info panel, since that work is still the same |
 | sidebar **error** | the turn ends on an API error — a rate limit, an auth or billing problem, an overloaded model. Claude Code and opencode only; Codex has no event that reports one. Every other kind of failure stays the agent's own call |
 
 Apart from that last row, the delay before a Claude Code permission prompt
-notifies, and a background subagent holding a Claude Code turn at working, the
-three agents behave identically.
+notifies, a background subagent holding a Claude Code turn at working, and a
+turn you interrupt, which ends like any other on Codex but stays `working` on
+Claude Code (whose Stop hook does not run for an interruption), the three
+agents behave identically.
 
 Outside a Casper terminal the integration does nothing at all, and it never
 blocks or fails a turn even when Casper isn't running.

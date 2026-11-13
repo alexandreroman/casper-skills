@@ -36,6 +36,10 @@ grep -q '^| `claude` | `-n` (long form `--name`)' "$FILE" \
 for cli in codex gemini opencode aider; do
   grep -q "^| \`$cli\` | none" "$FILE" || fail "$cli has no session-name flag; the table must say none"
 done
+# Codex 0.169 runs sessions in a background server shared machine-wide, with
+# the environment of the terminal that started it; only --no-daemon keeps the
+# new instance's hooks on the new workspace (hooks/lib/codex_server.py).
+grep -q 'launch it as `codex --no-daemon`' "$FILE" || fail "codex must be launched with --no-daemon"
 grep -q "launched unnamed" "$FILE" || fail "must say an agent CLI without a name flag is launched unnamed"
 
 # What the agent launched earlier is history: the user or another agent can

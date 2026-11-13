@@ -25,10 +25,10 @@ never allowed to interrupt, block, or fail the task at hand.
 
 ## Codex socket access
 
-`casper` reaches the app through `$CASPER_CONTROL_SOCKET`, a Unix-domain socket
-outside Codex's workspace sandbox: `allowed-tools` authorizes the command but
-not that access. From Codex, request `sandbox_permissions: require_escalated`,
-and for persistent approval use `prefix_rule: ["casper"]`, never broader.
+`casper` reaches the app through a socket outside Codex's sandbox, which
+`allowed-tools` cannot open: request `sandbox_permissions: require_escalated`,
+and `prefix_rule: ["casper"]`, never broader. Run the guard on its own: with it
+in front of the `casper` call, no rule matches and every call asks again.
 
 ## Tell the user when you need them
 
